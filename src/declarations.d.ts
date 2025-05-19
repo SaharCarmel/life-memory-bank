@@ -1,12 +1,6 @@
-/**
- * Type declarations for external modules and globals
- */
+/// <reference types="electron" />
+/// <reference types="node" />
 
-// Webpack entry points injected by Electron Forge
-declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
-declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
-
-// Module declarations for non-TS modules
 declare module '*.css' {
   const content: { [className: string]: string };
   export default content;
@@ -22,7 +16,21 @@ declare module '*.png' {
   export default content;
 }
 
+declare module '*.jpg' {
+  const content: string;
+  export default content;
+}
+
 declare module '*.json' {
   const content: { [key: string]: any };
   export default content;
+}
+
+declare namespace NodeJS {
+  interface ProcessEnv {
+    NODE_ENV: 'development' | 'production';
+    APPLE_ID?: string;
+    APPLE_PASSWORD?: string;
+    APPLE_TEAM_ID?: string;
+  }
 }

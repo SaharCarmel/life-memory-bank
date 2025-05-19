@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "ES2021",
     "allowJs": true,
     "module": "commonjs",
     "skipLibCheck": true,
@@ -12,11 +12,16 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "jsx": "react-jsx",
-    "lib": ["dom", "es2015", "es2016", "es2017"],
-    "strict": true,
     "paths": {
-      "*": ["node_modules/*"]
-    }
+      "@/*": ["src/*"],
+      "@services/*": ["src/shared/services/*"]
+    },
+    "typeRoots": [
+      "node_modules/@types",
+      "src/declarations.d.ts"
+    ],
+    "types": ["electron", "node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "webpack.*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
