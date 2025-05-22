@@ -4,6 +4,8 @@ import { AudioService } from '../audio';
 import { RecordingState } from '../../shared/types/audio';
 import { ServiceContainer } from '../../shared/services';
 import { StorageService, RecordingMetadata } from '../storage/StorageService';
+import { setupConfigHandlers } from './configHandlers';
+import { setupAIHandlers } from './aiHandlers';
 
 let audioService: AudioService;
 let audioLevelInterval: NodeJS.Timeout | null = null;
@@ -13,6 +15,11 @@ let currentRecordingId: string | null = null;
 export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
   // Initialize AudioService with the service container
   audioService = new AudioService({}, serviceContainer);
+  
+  // Set up config and AI handlers
+  setupConfigHandlers();
+  setupAIHandlers();
+  
   // App handlers
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => {
     return app.getVersion();

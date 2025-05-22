@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RecordingMetadata } from '../preload';
+import { TranscriptViewer } from './TranscriptViewer';
 import styles from './RecordingItem.module.css';
 
 interface RecordingItemProps {
@@ -12,6 +13,7 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
   const [transcriptionProgress, setTranscriptionProgress] = useState<number>(0);
   const [transcriptionStatus, setTranscriptionStatus] = useState<string>(recording.transcriptStatus || 'none');
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [showTranscriptViewer, setShowTranscriptViewer] = useState(false);
 
   useEffect(() => {
     // Set up transcription event listeners
@@ -74,6 +76,12 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
     setShowMenu(false);
   };
 
+  const handleViewTranscript = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowTranscriptViewer(true);
+    setShowMenu(false);
+  };
+
   const getTranscriptionStatusIcon = () => {
     switch (transcriptionStatus) {
       case 'completed':
@@ -124,85 +132,102 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
   };
 
   return (
-    <div className={styles.item}>
-      <div className={styles.content}>
-        <div className={styles.time}>{formatTime(recording.startTime)}</div>
-        <div className={styles.details}>
-          <span className={styles.duration}>{formatDuration(recording.duration)}</span>
-          <span className={styles.separator}>•</span>
-          <span className={styles.size}>{formatFileSize(recording.size)}</span>
-          {getTranscriptionStatusIcon() && (
-            <>
-              <span className={styles.separator}>•</span>
-              <span className={styles.transcriptionStatus}>
-                {getTranscriptionStatusIcon()}
-                {transcriptionStatus === 'processing' && (
-                  <span className={styles.progressText}> {Math.round(transcriptionProgress)}%</span>
-                )}
-              </span>
-            </>
+    <>
+      <div className={styles.item}>
+        <div className={styles.content}>
+          <div className={styles.time}>{formatTime(recording.startTime)}</div>
+          <div className={styles.details}>
+            <span className={styles.duration}>{formatDuration(recording.duration)}</span>
+            <span className={styles.separator}>•</span>
+            <span className={styles.size}>{formatFileSize(recording.size)}</span>
+            {getTranscriptionStatusIcon() && (
+              <>
+                <span className={styles.separator}>•</span>
+                <span className={styles.transcriptionStatus}>
+                  {getTranscriptionStatusIcon()}
+                  {transcriptionStatus === 'processing' && (
+                    <span className={styles.progressText}> {Math.round(transcriptionProgress)}%</span>
+                  )}
+                </span>
+              </>
+            )}
+          </div>
+          {transcriptionStatus === 'processing' && (
+            <div className={styles.progressBar}>
+              <div 
+                className={styles.progressFill} 
+                style={{ width: `${transcriptionProgress}%` }}
+              />
+            </div>
           )}
         </div>
-        {transcriptionStatus === 'processing' && (
-          <div className={styles.progressBar}>
-            <div 
-              className={styles.progressFill} 
-              style={{ width: `${transcriptionProgress}%` }}
-            />
-          </div>
-        )}
-      </div>
-      
-      <div className={styles.actions}>
-        <button 
-          className={styles.menuButton}
-          onClick={handleMenuClick}
-          aria-label="Recording options"
-        >
-          ⋮
-        </button>
         
-        {showMenu && (
-          <div className={styles.menu}>
-            <button className={styles.menuItem} disabled>
-              Play
-            </button>
-            <button className={styles.menuItem} disabled>
-              Rename
-            </button>
-            <button className={styles.menuItem} disabled>
-              Export
-            </button>
-            <div className={styles.menuDivider} />
-            {transcriptionStatus === 'none' || transcriptionStatus === 'failed' ? (
-              <button 
-                className={styles.menuItem}
-                onClick={handleTranscribe}
-              >
-                📝 Transcribe
-              </button>
-            ) : transcriptionStatus === 'processing' ? (
-              <button 
-                className={styles.menuItem}
-                onClick={handleCancelTranscription}
-              >
-                ⏹ Cancel Transcription
-              </button>
-            ) : (
+        <div className={styles.actions}>
+          <button 
+            className={styles.menuButton}
+            onClick={handleMenuClick}
+            aria-label="Recording options"
+          >
+            ⋮
+          </button>
+          
+          {showMenu && (
+            <div className={styles.menu}>
               <button className={styles.menuItem} disabled>
-                ✓ Transcribed
+                Play
               </button>
-            )}
-            <div className={styles.menuDivider} />
-            <button 
-              className={`${styles.menuItem} ${styles.deleteItem}`}
-              onClick={handleDelete}
-            >
-              Delete
-            </button>
-          </div>
-        )}
+              <button className={styles.menuItem} disabled>
+                Rename
+              </button>
+              <button className={styles.menuItem} disabled>
+                Export
+              </button>
+              <div className={styles.menuDivider} />
+              {transcriptionStatus === 'completed' && (
+                <button 
+                  className={styles.menuItem}
+                  onClick={handleViewTranscript}
+                >
+                  📄 View Transcript
+                </button>
+              )}
+              {transcriptionStatus === 'none' || transcriptionStatus === 'failed' ? (
+                <button 
+                  className={styles.menuItem}
+                  onClick={handleTranscribe}
+                >
+                  📝 Transcribe
+                </button>
+              ) : transcriptionStatus === 'processing' ? (
+                <button 
+                  className={styles.menuItem}
+                  onClick={handleCancelTranscription}
+                >
+                  ⏹ Cancel Transcription
+                </button>
+              ) : transcriptionStatus === 'completed' ? (
+                <button className={styles.menuItem} disabled>
+                  ✓ Transcribed
+                </button>
+              ) : null}
+              <div className={styles.menuDivider} />
+              <button 
+                className={`${styles.menuItem} ${styles.deleteItem}`}
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <TranscriptViewer
+        recordingId={recording.id}
+        recordingDate={new Date(recording.startTime)}
+        isOpen={showTranscriptViewer}
+        onClose={() => setShowTranscriptViewer(false)}
+      />
+    </>
   );
 };

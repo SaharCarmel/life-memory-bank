@@ -1,13 +1,16 @@
 [project]
-name = "voice-mcp-whisper"
+name = "voice-mcp-ai"
 version = "0.1.0"
-description = "Whisper transcription worker for VoiceMCP"
+description = "AI workers for VoiceMCP (Whisper + OpenAI)"
 requires-python = ">=3.8"
 dependencies = [
     "openai-whisper>=20240930",
     "torch>=2.0.0,<3.0.0",
     "numpy>=1.21.0",
-    "ffmpeg-python>=0.2.0"
+    "ffmpeg-python>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "openai>=1.0.0"
 ]
 
 [build-system]

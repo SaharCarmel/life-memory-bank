@@ -84,6 +84,8 @@
     "webpack-node-externals": "^3.0.0"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.57",
+    "@langchain/openai": "^0.5.11",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "electron-squirrel-startup": "^1.0.1",
     "react": "^18.2.0",

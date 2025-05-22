@@ -8,6 +8,8 @@ import { EventEmitter } from '../shared/events';
 import { PythonEnvironment } from './python/PythonEnvironment';
 import { WhisperService } from './whisper/WhisperService';
 import { StorageService } from './storage/StorageService';
+import { configService } from './config/ConfigService';
+import { aiService } from './ai/AIService';
 
 // Initialize service container
 const serviceContainer = new ServiceContainer();
@@ -32,6 +34,22 @@ declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 
 app.on('ready', async () => {
+  // Initialize configuration service
+  try {
+    await configService.initialize();
+    console.log('ConfigService initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize ConfigService:', error);
+  }
+
+  // Initialize AI service
+  try {
+    await aiService.initialize();
+    console.log('AIService initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize AIService:', error);
+  }
+
   // Set up IPC handlers
   setupIpcHandlers(serviceContainer);
   
