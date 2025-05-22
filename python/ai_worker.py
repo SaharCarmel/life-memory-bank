@@ -196,10 +196,19 @@ def main():
         with open(args.transcript_file, 'r', encoding='utf-8') as f:
             transcript_data = json.load(f)
         
-        # Extract transcript text
-        transcript_text = transcript_data.get("text", "")
-        if not transcript_text:
+        # Extract transcript text - handle both formats
+        transcript_text = ""
+        if "text" in transcript_data:
+            # Direct format
+            transcript_text = transcript_data["text"]
+        elif "result" in transcript_data and "text" in transcript_data["result"]:
+            # Nested format from WhisperService
+            transcript_text = transcript_data["result"]["text"]
+        else:
             raise ValueError("No transcript text found in file")
+        
+        if not transcript_text or len(transcript_text.strip()) < 10:
+            raise ValueError("Transcript text is too short or empty")
         
         # Process with AI
         result = process_transcript(args.api_key, transcript_text, args.model)

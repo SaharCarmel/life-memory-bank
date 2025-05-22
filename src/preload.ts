@@ -34,6 +34,13 @@ contextBridge.exposeInMainWorld(
       cancel: (jobId: string) => ipcRenderer.invoke('transcription:cancel', jobId),
       loadTranscript: (recordingId: string) => ipcRenderer.invoke('transcription:load-transcript', recordingId),
     },
+    config: {
+      getOpenAIConfig: () => ipcRenderer.invoke('config:getOpenAI'),
+      setOpenAIConfig: (config: { apiKey?: string; model: string; temperature: number }) => ipcRenderer.invoke('config:setOpenAI', config),
+      hasOpenAIConfig: () => ipcRenderer.invoke('config:hasOpenAI'),
+      testOpenAIConfig: (apiKey: string) => ipcRenderer.invoke('config:testOpenAI', apiKey),
+      clearConfig: () => ipcRenderer.invoke('config:clear'),
+    },
     onRecordingStatus: (callback: (status: string) => void) => {
       ipcRenderer.on(IpcChannels.RECORDING_STATUS, (_, status) => callback(status));
       return () => {
@@ -73,6 +80,30 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.on('transcription:failed', (_, data) => callback(data));
       return () => {
         ipcRenderer.removeAllListeners('transcription:failed');
+      };
+    },
+    ai: {
+      processTranscript: (recordingId: string, transcriptPath: string) => ipcRenderer.invoke('ai:processTranscript', recordingId, transcriptPath),
+      getJobStatus: (jobId: string) => ipcRenderer.invoke('ai:getJobStatus', jobId),
+      cancelJob: (jobId: string) => ipcRenderer.invoke('ai:cancelJob', jobId),
+      getActiveJobs: () => ipcRenderer.invoke('ai:getActiveJobs'),
+    },
+    onAIProgress: (callback: (data: { jobId: string; progress: number; message: string }) => void) => {
+      ipcRenderer.on('ai:progress', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('ai:progress');
+      };
+    },
+    onAICompleted: (callback: (data: { jobId: string; result: any }) => void) => {
+      ipcRenderer.on('ai:completed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('ai:completed');
+      };
+    },
+    onAIFailed: (callback: (data: { jobId: string; error: string }) => void) => {
+      ipcRenderer.on('ai:failed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('ai:failed');
       };
     },
   }

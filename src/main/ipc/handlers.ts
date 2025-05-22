@@ -16,9 +16,12 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
   // Initialize AudioService with the service container
   audioService = new AudioService({}, serviceContainer);
   
-  // Set up config and AI handlers
+  // Storage handlers
+  const persistentStorageService = new StorageService();
+  
+  // Set up config and AI handlers (pass storage service to AI handlers)
   setupConfigHandlers();
-  setupAIHandlers();
+  setupAIHandlers(persistentStorageService);
   
   // App handlers
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => {
@@ -174,9 +177,6 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
     }
   });
   
-  // Storage handlers
-  const persistentStorageService = new StorageService();
-  
   ipcMain.handle('storage:list-recordings', async (): Promise<RecordingMetadata[]> => {
     try {
       const recordings = await persistentStorageService.listRecordings();
@@ -198,9 +198,9 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
     }
   });
 
-  ipcMain.handle('storage:get-recording-info', async (_, recordingId: string): Promise<RecordingMetadata | undefined> => {
+  ipcMain.handle('storage:get-recording-info', async (_, recordingId: string): Promise<RecordingMetadata | null> => {
     try {
-      const metadata = persistentStorageService.getRecordingMetadata(recordingId);
+      const metadata = await persistentStorageService.getRecordingInfo(recordingId);
       return metadata;
     } catch (error) {
       console.error('Failed to get recording info:', error);

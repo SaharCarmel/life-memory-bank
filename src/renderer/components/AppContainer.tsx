@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ServiceContainer } from '../../shared/services/ServiceContainer';
 import { EventEmitter } from '../../shared/events/EventEmitter';
 import { EventType, WindowEvent } from '../../shared/events/types';
 import { RecordingControls } from './RecordingControls';
 import { Sidebar } from './Sidebar';
 import { RecordingsList } from './RecordingsList';
+import { SettingsWindow } from './SettingsWindow';
 import styles from './AppContainer.module.css';
 
 interface AppContainerProps {
@@ -14,6 +15,7 @@ interface AppContainerProps {
 
 export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
   const [recordingsListKey, setRecordingsListKey] = React.useState(0);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     // Subscribe to window state changes
@@ -48,6 +50,15 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
     <div className={styles.appContainer}>
       <header className={styles.appHeader}>
         <h1>Voice MCP</h1>
+        <div className={styles.headerActions}>
+          <button 
+            className={styles.settingsButton}
+            onClick={() => setIsSettingsOpen(true)}
+            title="Settings"
+          >
+            ⚙️
+          </button>
+        </div>
         <div className={styles.windowControls}>
           <button onClick={handleMinimize}>−</button>
           <button onClick={handleMaximize}>□</button>
@@ -73,6 +84,11 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
           Ready
         </div>
       </footer>
+      
+      <SettingsWindow 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 };

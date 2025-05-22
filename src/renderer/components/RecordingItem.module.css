@@ -20,6 +20,105 @@
   min-width: 0;
 }
 
+/* AI Title Section */
+.titleSection {
+  margin-bottom: 4px;
+}
+
+.titleDisplay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #fff);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aiTitle {
+  color: var(--ai-title-color, #4CAF50);
+  font-weight: 600;
+}
+
+.aiIndicator {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.editButton {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  font-size: 12px;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.titleDisplay:hover .editButton {
+  opacity: 1;
+}
+
+.editButton:hover {
+  background-color: var(--button-hover-bg, #444);
+  color: var(--text-primary, #fff);
+}
+
+/* Title Editing */
+.titleEdit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.titleInput {
+  flex: 1;
+  background: var(--input-bg, #333);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--text-primary, #fff);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.titleInput:focus {
+  outline: none;
+  border-color: var(--accent-color, #007acc);
+}
+
+.saveButton,
+.cancelButton {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.saveButton:hover {
+  background-color: var(--success-bg, #4CAF5020);
+  color: var(--success-color, #4CAF50);
+}
+
+.cancelButton:hover {
+  background-color: var(--error-bg, #ff6b6b20);
+  color: var(--error-color, #ff6b6b);
+}
+
+/* Legacy time class for backward compatibility */
 .time {
   font-size: 14px;
   font-weight: 500;
@@ -42,6 +141,47 @@
 .separator {
   margin: 0 6px;
   opacity: 0.5;
+}
+
+/* AI Summary Section */
+.summarySection {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.summaryPreview {
+  background: var(--summary-bg, #1e1e1e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  padding: 8px 12px;
+  position: relative;
+}
+
+.summaryText {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary, #ccc);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.expandButton {
+  background: none;
+  border: none;
+  color: var(--accent-color, #007acc);
+  cursor: pointer;
+  font-size: 11px;
+  margin-top: 6px;
+  padding: 2px 0;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.expandButton:hover {
+  color: var(--accent-hover, #0099ff);
 }
 
 .actions {

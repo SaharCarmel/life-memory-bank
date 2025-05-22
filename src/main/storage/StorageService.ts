@@ -21,6 +21,13 @@ export interface RecordingMetadata {
   transcriptPath?: string;
   transcriptError?: string;
   transcriptProgress?: number; // 0-100 for progress tracking
+  // AI-generated content
+  aiTitle?: string;
+  aiSummary?: string;
+  aiStatus?: 'none' | 'processing' | 'completed' | 'failed';
+  aiError?: string;
+  aiProgress?: number; // 0-100 for AI processing progress
+  aiGeneratedAt?: Date;
 }
 
 export interface ActiveRecording {
@@ -44,6 +51,15 @@ export interface TranscriptStorage {
       text: string;
     }>;
   };
+  version: string;
+}
+
+// AI Content Storage interface
+export interface AIContentStorage {
+  recordingId: string;
+  generatedAt: Date;
+  title: string;
+  summary: string;
   version: string;
 }
 
@@ -302,6 +318,24 @@ export class StorageService {
       const transcriptPath = this.getTranscriptPath(filepath);
       const hasTranscript = await this.hasTranscript(filepath);
 
+      // Check for AI content directly from file path (avoid circular dependency)
+      const aiPath = this.getAIContentPath(filepath);
+      const hasAI = await this.hasAIContent(filepath);
+      let aiContent: { title?: string; summary?: string } | null = null;
+      
+      if (hasAI) {
+        try {
+          const aiData = await fs.promises.readFile(aiPath, 'utf8');
+          const parsed: AIContentStorage = JSON.parse(aiData);
+          aiContent = {
+            title: parsed.title,
+            summary: parsed.summary
+          };
+        } catch (error) {
+          console.error(`Failed to load AI content from ${aiPath}:`, error);
+        }
+      }
+
       return {
         id,
         filename,
@@ -312,10 +346,24 @@ export class StorageService {
         size: stats.size,
         format: 'webm',
         transcriptStatus: hasTranscript ? 'completed' : 'none',
-        transcriptPath: hasTranscript ? transcriptPath : undefined
+        transcriptPath: hasTranscript ? transcriptPath : undefined,
+        aiStatus: hasAI ? 'completed' : 'none',
+        aiTitle: aiContent?.title,
+        aiSummary: aiContent?.summary,
+        aiGeneratedAt: hasAI ? new Date() : undefined
       };
     } catch (error) {
       console.error(`Failed to extract metadata from ${filepath}:`, error);
+      return null;
+    }
+  }
+
+  public async getRecordingInfo(recordingId: string): Promise<RecordingMetadata | null> {
+    try {
+      const recordings = await this.listRecordings();
+      return recordings.find(r => r.id === recordingId) || null;
+    } catch (error) {
+      console.error(`Failed to get recording info for ${recordingId}:`, error);
       return null;
     }
   }
@@ -329,6 +377,13 @@ export class StorageService {
       if (await this.hasTranscript(filepath)) {
         await fs.promises.unlink(transcriptPath);
         console.log(`Transcript deleted: ${transcriptPath}`);
+      }
+
+      // Also delete AI content if it exists
+      const aiPath = this.getAIContentPath(filepath);
+      if (await this.hasAIContent(filepath)) {
+        await fs.promises.unlink(aiPath);
+        console.log(`AI content deleted: ${aiPath}`);
       }
       
       console.log(`Recording deleted: ${filepath}`);
@@ -414,5 +469,89 @@ export class StorageService {
     // For now, we'll just log the status change
     // In a full implementation, you might want to store metadata in SQLite
     console.log(`Transcript status updated for ${recordingId}: ${status}${progress !== undefined ? ` (${progress}%)` : ''}${error ? ` - ${error}` : ''}`);
+  }
+
+  // AI-related methods
+  public getAIContentPath(recordingFilepath: string): string {
+    const dir = path.dirname(recordingFilepath);
+    const basename = path.basename(recordingFilepath, '.webm');
+    return path.join(dir, `${basename}.ai.json`);
+  }
+
+  public async hasAIContent(recordingFilepath: string): Promise<boolean> {
+    const aiPath = this.getAIContentPath(recordingFilepath);
+    try {
+      await fs.promises.access(aiPath, fs.constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async updateAIStatus(recordingId: string, status: RecordingMetadata['aiStatus'], progress?: number, error?: string): Promise<void> {
+    // This method would typically update a database record
+    // For now, we'll just log the status change
+    // In a full implementation, you might want to store metadata in SQLite
+    console.log(`AI status updated for ${recordingId}: ${status}${progress !== undefined ? ` (${progress}%)` : ''}${error ? ` - ${error}` : ''}`);
+  }
+
+  public async saveAIContent(recordingId: string, title: string, summary: string): Promise<void> {
+    try {
+      // Find the recording metadata to get the filepath
+      const recordings = await this.listRecordings();
+      const recording = recordings.find(r => r.id === recordingId);
+      
+      if (!recording) {
+        throw new Error(`Recording not found: ${recordingId}`);
+      }
+
+      const aiPath = this.getAIContentPath(recording.filepath);
+      
+      const aiData: AIContentStorage = {
+        recordingId,
+        generatedAt: new Date(),
+        title,
+        summary,
+        version: '1.0'
+      };
+
+      await fs.promises.writeFile(aiPath, JSON.stringify(aiData, null, 2), 'utf8');
+      
+      console.log(`AI content saved: ${aiPath}`);
+      console.log(`Title: ${title}`);
+      console.log(`Summary: ${summary}`);
+    } catch (error) {
+      console.error(`Failed to save AI content for recording ${recordingId}:`, error);
+      throw new Error(`Failed to save AI content: ${error}`);
+    }
+  }
+
+  public async getAIContent(recordingId: string): Promise<{ title?: string; summary?: string } | null> {
+    try {
+      // Find the recording metadata to get the filepath
+      const recordings = await this.listRecordings();
+      const recording = recordings.find(r => r.id === recordingId);
+      
+      if (!recording) {
+        return null;
+      }
+
+      const aiPath = this.getAIContentPath(recording.filepath);
+      
+      if (!(await this.hasAIContent(recording.filepath))) {
+        return null;
+      }
+
+      const aiData = await fs.promises.readFile(aiPath, 'utf8');
+      const parsed: AIContentStorage = JSON.parse(aiData);
+      
+      return {
+        title: parsed.title,
+        summary: parsed.summary
+      };
+    } catch (error) {
+      console.error(`Failed to get AI content for recording ${recordingId}:`, error);
+      return null;
+    }
   }
 }

@@ -11,6 +11,8 @@ import {
   TranscriptionJobStartedEvent,
   TranscriptionJobCancelledEvent
 } from '@shared/events/types';
+import { aiService } from '../ai/AIService';
+import { configService } from '../config/ConfigService';
 
 export function registerTranscriptionHandlers(
   whisperService: WhisperService, 
@@ -143,6 +145,42 @@ export function registerTranscriptionHandlers(
       if (job && completedEvent.result) {
         await storageService.saveTranscript(job.recordingId, completedEvent.result);
         await storageService.updateTranscriptStatus(job.recordingId, 'completed');
+
+        // Auto-trigger AI processing if OpenAI is configured
+        try {
+          const hasOpenAIConfig = await configService.hasOpenAIConfig();
+          if (hasOpenAIConfig) {
+            console.log(`Starting AI processing for recording ${job.recordingId} after transcription completion`);
+            
+            // Update AI status to processing
+            await storageService.updateAIStatus(job.recordingId, 'processing', 0);
+            
+            // Get recording to get transcript path for AI processing
+            const recordings = await storageService.listRecordings();
+            const recording = recordings.find(r => r.id === job.recordingId);
+            
+            if (recording) {
+              const transcriptPath = storageService.getTranscriptPath(recording.filepath);
+              
+              // Start AI processing
+              const aiJobId = await aiService.processTranscript(job.recordingId, transcriptPath);
+              console.log(`Started AI job ${aiJobId} for recording ${job.recordingId}`);
+              
+              // Notify renderer about AI processing start
+              mainWindow.webContents.send('ai:started', {
+                recordingId: job.recordingId,
+                aiJobId
+              });
+            } else {
+              throw new Error(`Recording ${job.recordingId} not found for AI processing`);
+            }
+          } else {
+            console.log(`Skipping AI processing for recording ${job.recordingId} - OpenAI not configured`);
+          }
+        } catch (aiError) {
+          console.error(`Failed to start AI processing for recording ${job.recordingId}:`, aiError);
+          await storageService.updateAIStatus(job.recordingId, 'failed', 0, aiError instanceof Error ? aiError.message : 'Unknown AI error');
+        }
       }
       
       mainWindow.webContents.send('transcription:completed', {

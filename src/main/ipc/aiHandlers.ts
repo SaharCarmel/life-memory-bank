@@ -1,7 +1,16 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { aiService } from '../ai/AIService';
+import { StorageService } from '../storage/StorageService';
 
-export function setupAIHandlers(): void {
+// We'll need to get the storage service instance
+let storageServiceInstance: StorageService | null = null;
+
+export function setupAIHandlers(storageService?: StorageService): void {
+  // Store the storage service instance for use in event handlers
+  if (storageService) {
+    storageServiceInstance = storageService;
+  }
+
   // Process transcript with AI
   ipcMain.handle('ai:processTranscript', async (_, recordingId: string, transcriptPath: string) => {
     try {
@@ -56,9 +65,15 @@ function setupAIEventForwarding(): void {
   const originalEmitJobCompleted = (aiService as any).emitJobCompleted;
   const originalEmitJobFailed = (aiService as any).emitJobFailed;
 
-  (aiService as any).emitJobProgress = (jobId: string, progress: number, message: string) => {
+  (aiService as any).emitJobProgress = async (jobId: string, progress: number, message: string) => {
     // Call original method
     originalEmitJobProgress.call(aiService, jobId, progress, message);
+    
+    // Update storage with AI progress
+    const job = await aiService.getJobStatus(jobId);
+    if (job && storageServiceInstance) {
+      await storageServiceInstance.updateAIStatus(job.recordingId, 'processing', progress, message);
+    }
     
     // Forward to renderer
     const mainWindow = BrowserWindow.getAllWindows()[0];
@@ -67,9 +82,22 @@ function setupAIEventForwarding(): void {
     }
   };
 
-  (aiService as any).emitJobCompleted = (jobId: string, result: any) => {
+  (aiService as any).emitJobCompleted = async (jobId: string, result: any) => {
     // Call original method
     originalEmitJobCompleted.call(aiService, jobId, result);
+    
+    // Update storage with AI results
+    const job = await aiService.getJobStatus(jobId);
+    if (job && result && storageServiceInstance) {
+      try {
+        await storageServiceInstance.saveAIContent(job.recordingId, result.title, result.summary);
+        await storageServiceInstance.updateAIStatus(job.recordingId, 'completed', 100);
+        console.log(`AI content saved for recording ${job.recordingId}: "${result.title}"`);
+      } catch (error) {
+        console.error(`Failed to save AI content for recording ${job.recordingId}:`, error);
+        await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', 100, 'Failed to save AI content');
+      }
+    }
     
     // Forward to renderer
     const mainWindow = BrowserWindow.getAllWindows()[0];
@@ -78,9 +106,15 @@ function setupAIEventForwarding(): void {
     }
   };
 
-  (aiService as any).emitJobFailed = (jobId: string, error: string) => {
+  (aiService as any).emitJobFailed = async (jobId: string, error: string) => {
     // Call original method
     originalEmitJobFailed.call(aiService, jobId, error);
+    
+    // Update storage with AI failure
+    const job = await aiService.getJobStatus(jobId);
+    if (job && storageServiceInstance) {
+      await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', 0, error);
+    }
     
     // Forward to renderer
     const mainWindow = BrowserWindow.getAllWindows()[0];
