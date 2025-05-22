@@ -215,9 +215,83 @@ export class StorageService {
   }
 
   public async listRecordings(): Promise<RecordingMetadata[]> {
-    // TODO: Implement listing of saved recordings
-    // This would scan the recordings directory and build metadata
-    return [];
+    const recordings: RecordingMetadata[] = [];
+    const recordingsPath = path.join(this.basePath, 'recordings');
+
+    try {
+      // Check if recordings directory exists
+      if (!fs.existsSync(recordingsPath)) {
+        return recordings;
+      }
+
+      // Recursively scan the recordings directory
+      const scanDirectory = async (dirPath: string): Promise<void> => {
+        const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(dirPath, entry.name);
+
+          if (entry.isDirectory()) {
+            // Recursively scan subdirectories
+            await scanDirectory(fullPath);
+          } else if (entry.isFile() && entry.name.endsWith('.webm')) {
+            try {
+              // Extract metadata from filename
+              const metadata = await this.extractMetadataFromFile(fullPath);
+              if (metadata) {
+                recordings.push(metadata);
+              }
+            } catch (error) {
+              console.error(`Failed to extract metadata from ${fullPath}:`, error);
+            }
+          }
+        }
+      };
+
+      await scanDirectory(recordingsPath);
+
+      // Sort recordings by date (newest first)
+      recordings.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+
+      return recordings;
+    } catch (error) {
+      console.error('Failed to list recordings:', error);
+      return recordings;
+    }
+  }
+
+  private async extractMetadataFromFile(filepath: string): Promise<RecordingMetadata | null> {
+    try {
+      const stats = await fs.promises.stat(filepath);
+      const filename = path.basename(filepath);
+      
+      // Parse datetime from filename (format: YYYY-MM-DD_HH-MM-SS_uuid.webm)
+      const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_([a-f0-9-]+)\.webm$/);
+      if (!match) {
+        console.warn(`Filename doesn't match expected pattern: ${filename}`);
+        return null;
+      }
+
+      const [, dateStr, timeStr, uuid] = match;
+      const startTime = new Date(`${dateStr}T${timeStr.replace(/-/g, ':')}`);
+      
+      // Generate a unique ID based on the filename
+      const id = `${dateStr}_${timeStr}_${uuid}`;
+
+      return {
+        id,
+        filename,
+        filepath,
+        startTime,
+        endTime: new Date(stats.mtime), // Use file modification time as end time
+        duration: (stats.mtime.getTime() - startTime.getTime()) / 1000,
+        size: stats.size,
+        format: 'webm'
+      };
+    } catch (error) {
+      console.error(`Failed to extract metadata from ${filepath}:`, error);
+      return null;
+    }
   }
 
   public async deleteRecording(filepath: string): Promise<void> {

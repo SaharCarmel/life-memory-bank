@@ -3,7 +3,7 @@ import { IpcChannels, ErrorCode, createError } from '../../shared';
 import { AudioService } from '../audio';
 import { RecordingState } from '../../shared/types/audio';
 import { ServiceContainer } from '../../shared/services';
-import { StorageService } from '../storage/StorageService';
+import { StorageService, RecordingMetadata } from '../storage/StorageService';
 
 let audioService: AudioService;
 let audioLevelInterval: NodeJS.Timeout | null = null;
@@ -164,6 +164,40 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
       }
     } catch (error) {
       console.error('Failed to process audio chunk:', error);
+    }
+  });
+  
+  // Storage handlers
+  const persistentStorageService = new StorageService();
+  
+  ipcMain.handle('storage:list-recordings', async (): Promise<RecordingMetadata[]> => {
+    try {
+      const recordings = await persistentStorageService.listRecordings();
+      console.log(`Listed ${recordings.length} recordings`);
+      return recordings;
+    } catch (error) {
+      console.error('Failed to list recordings:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('storage:delete-recording', async (_, filepath: string): Promise<void> => {
+    try {
+      await persistentStorageService.deleteRecording(filepath);
+      console.log(`Deleted recording: ${filepath}`);
+    } catch (error) {
+      console.error('Failed to delete recording:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('storage:get-recording-info', async (_, recordingId: string): Promise<RecordingMetadata | undefined> => {
+    try {
+      const metadata = persistentStorageService.getRecordingMetadata(recordingId);
+      return metadata;
+    } catch (error) {
+      console.error('Failed to get recording info:', error);
+      throw error;
     }
   });
   

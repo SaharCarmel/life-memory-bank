@@ -10,6 +10,7 @@ export enum IpcChannels {
   RECORDING_PAUSE = 'recording:pause',
   RECORDING_RESUME = 'recording:resume',
   RECORDING_STATUS = 'recording:status',
+  RECORDING_COMPLETED = 'recording:completed',
   AUDIO_LEVEL_UPDATE = 'audio:levelUpdate',
   AUDIO_DATA_CHUNK = 'audio:dataChunk',
   

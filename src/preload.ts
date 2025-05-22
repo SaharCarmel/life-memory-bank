@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld(
       maximize: () => ipcRenderer.send(IpcChannels.WINDOW_MAXIMIZE),
       close: () => ipcRenderer.send(IpcChannels.WINDOW_CLOSE),
     },
+    storage: {
+      listRecordings: () => ipcRenderer.invoke('storage:list-recordings'),
+      deleteRecording: (filepath: string) => ipcRenderer.invoke('storage:delete-recording', filepath),
+      getRecordingInfo: (recordingId: string) => ipcRenderer.invoke('storage:get-recording-info', recordingId),
+    },
     onRecordingStatus: (callback: (status: string) => void) => {
       ipcRenderer.on(IpcChannels.RECORDING_STATUS, (_, status) => callback(status));
       return () => {
@@ -32,6 +37,17 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.on(IpcChannels.AUDIO_LEVEL_UPDATE, (_, data) => callback(data));
       return () => {
         ipcRenderer.removeAllListeners(IpcChannels.AUDIO_LEVEL_UPDATE);
+      };
+    },
+    onRecordingCompleted: (callback: () => void) => {
+      console.log('[Preload] Setting up RECORDING_COMPLETED listener');
+      ipcRenderer.on(IpcChannels.RECORDING_COMPLETED, () => {
+        console.log('[Preload] RECORDING_COMPLETED event received from main process');
+        callback();
+      });
+      return () => {
+        console.log('[Preload] Removing RECORDING_COMPLETED listener');
+        ipcRenderer.removeAllListeners(IpcChannels.RECORDING_COMPLETED);
       };
     },
   }

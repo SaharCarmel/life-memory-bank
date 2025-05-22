@@ -4,11 +4,12 @@ import { RecorderService, AudioLevelMonitor } from '../services';
 
 interface RecordingControlsProps {
   onError?: (error: Error) => void;
+  onRecordingComplete?: () => void;
 }
 
 type RecordingState = 'idle' | 'recording' | 'paused' | 'stopping';
 
-export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError }) => {
+export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, onRecordingComplete }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -110,6 +111,13 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
         console.log('Main process recording stop result:', result);
         
         console.log('Recording completed');
+        
+        // Notify parent component that recording is complete
+        // Add a delay to ensure file is written
+        setTimeout(() => {
+          console.log('[RecordingControls] Calling onRecordingComplete callback');
+          onRecordingComplete?.();
+        }, 1000);
       }
       
       if (audioMonitorRef.current) {
@@ -128,7 +136,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
       setRecordingState('idle');
       onError?.(error as Error);
     }
-  }, [onError]);
+  }, [onError, onRecordingComplete]);
 
   // Update duration timer
   useEffect(() => {

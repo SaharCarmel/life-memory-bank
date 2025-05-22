@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ServiceContainer } from '../../shared/services/ServiceContainer';
 import { EventEmitter } from '../../shared/events/EventEmitter';
 import { EventType, WindowEvent } from '../../shared/events/types';
 import { RecordingControls } from './RecordingControls';
+import { Sidebar } from './Sidebar';
+import { RecordingsList } from './RecordingsList';
 import styles from './AppContainer.module.css';
 
 interface AppContainerProps {
@@ -11,6 +13,8 @@ interface AppContainerProps {
 }
 
 export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
+  const [recordingsListKey, setRecordingsListKey] = React.useState(0);
+
   useEffect(() => {
     // Subscribe to window state changes
     const unsubscribe = events.on(EventType.WINDOW_MAXIMIZED, (event: WindowEvent) => {
@@ -21,6 +25,12 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
       unsubscribe();
     };
   }, [events]);
+
+  const handleRecordingComplete = () => {
+    console.log('[AppContainer] Recording complete, refreshing recordings list');
+    // Force RecordingsList to remount and reload
+    setRecordingsListKey(prev => prev + 1);
+  };
 
   const handleMinimize = () => {
     window.electron.window.minimize();
@@ -44,14 +54,20 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
           <button onClick={handleClose}>×</button>
         </div>
       </header>
-      <main className={styles.appMain}>
-        <RecordingControls 
-          onError={(error) => {
-            console.error('Recording error:', error);
-            // TODO: Show error notification
-          }}
-        />
-      </main>
+      <div className={styles.layout}>
+        <Sidebar>
+          <RecordingsList key={recordingsListKey} />
+        </Sidebar>
+        <main className={styles.appMain}>
+          <RecordingControls 
+            onError={(error) => {
+              console.error('Recording error:', error);
+              // TODO: Show error notification
+            }}
+            onRecordingComplete={handleRecordingComplete}
+          />
+        </main>
+      </div>
       <footer className={styles.appFooter}>
         <div className={styles.statusBar}>
           Ready

@@ -1,4 +1,4 @@
-import { ipcMain, IpcMainEvent, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainEvent, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import { IpcChannels } from '@shared/types';
 import { StorageService } from '../storage/StorageService';
 
@@ -52,6 +52,18 @@ export function setupAudioHandlers(): void {
       recordingSessions.delete(sessionId);
       
       console.log(`Recording stopped and saved: ${metadata.filepath}`);
+      
+      // Add a small delay to ensure file is fully written
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Notify all renderer windows that a recording was completed
+      const windows = BrowserWindow.getAllWindows();
+      console.log(`[AudioHandlers] Sending RECORDING_COMPLETED event to ${windows.length} windows`);
+      windows.forEach((window, index) => {
+        console.log(`[AudioHandlers] Sending event to window ${index}`);
+        window.webContents.send(IpcChannels.RECORDING_COMPLETED);
+      });
+      
       return { success: true, metadata };
     } catch (error) {
       console.error('Failed to stop recording:', error);
