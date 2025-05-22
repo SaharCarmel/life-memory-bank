@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import { windowManager } from './window/index';
 import { setupWindowHandlers } from './window/handlers';
-import path from 'path';
+import { setupIpcHandlers } from './ipc/handlers';
 
 // Handle squirrel events for Windows
 if (process.platform === 'win32') {
@@ -11,7 +11,14 @@ if (process.platform === 'win32') {
   }
 }
 
+// Declare the webpack entry constant
+declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
+declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
+
 app.on('ready', () => {
+  // Set up IPC handlers
+  setupIpcHandlers();
+  
   // Create main window
   const mainWindow = windowManager.createWindow('main', {
     width: 1200,
@@ -22,7 +29,7 @@ app.on('ready', () => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload.js')
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY
     }
   });
 
@@ -30,11 +37,7 @@ app.on('ready', () => {
   setupWindowHandlers(mainWindow);
 
   // Load the index.html of the app
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:3000/main_window');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
-  }
+  mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
   // Open DevTools in development
   if (process.env.NODE_ENV === 'development') {
@@ -61,14 +64,10 @@ app.on('activate', () => {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.join(__dirname, '../preload.js')
+        preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY
       }
     });
-    if (process.env.NODE_ENV === 'development') {
-      mainWindow.loadURL('http://localhost:3000/main_window');
-    } else {
-      mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
-    }
+    mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
     setupWindowHandlers(mainWindow);
   }
 });

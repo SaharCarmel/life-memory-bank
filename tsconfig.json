@@ -32,5 +32,8 @@
     "noUnusedParameters": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", ".webpack"]
+  "exclude": ["node_modules", "dist", ".webpack"],
+  "files": [
+    "src/renderer/preload.d.ts"
+  ]
 }

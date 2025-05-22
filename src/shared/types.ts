@@ -165,9 +165,3 @@ export type AppEvent =
   | { type: 'TRANSCRIPTION_COMPLETED'; payload: TranscriptionResult }
   | { type: 'TRANSCRIPTION_FAILED'; payload: AppError }
   | { type: 'SETTINGS_UPDATED'; payload: Partial<AppSettings> };
-
-declare global {
-  interface Window {
-    electron: ElectronAPI;
-  }
-}

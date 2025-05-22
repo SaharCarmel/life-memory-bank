@@ -9,6 +9,11 @@ export interface ElectronAPI {
     getVersion: () => Promise<string>;
     quit: () => Promise<void>;
   };
+  window: {
+    minimize: () => void;
+    maximize: () => void;
+    close: () => void;
+  };
   onRecordingStatus: (callback: (status: string) => void) => () => void;
 }
 

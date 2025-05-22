@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { ServiceContainer } from '../../shared/services/ServiceContainer';
 import { EventEmitter } from '../../shared/events/EventEmitter';
 import { EventType, WindowEvent } from '../../shared/events/types';
+import { RecordingControls } from './RecordingControls';
 import styles from './AppContainer.module.css';
 
 interface AppContainerProps {
@@ -44,7 +45,12 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
         </div>
       </header>
       <main className={styles.appMain}>
-        {/* Main content will go here */}
+        <RecordingControls 
+          onError={(error) => {
+            console.error('Recording error:', error);
+            // TODO: Show error notification
+          }}
+        />
       </main>
       <footer className={styles.appFooter}>
         <div className={styles.statusBar}>
