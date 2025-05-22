@@ -2,18 +2,18 @@ import type { ModuleOptions } from 'webpack';
 
 export const rules: Required<ModuleOptions>['rules'] = [
   {
-    test: /native_modules[/\\].+\.node$/,
+    test: /\.node$/,
     use: 'node-loader',
   },
   {
-    test: /[/\\]node_modules[/\\].+\.(m?js|node)$/,
-    parser: { amd: false },
+    test: /\.(js|jsx|mjs)$/,
+    exclude: /node_modules/,
     use: {
-      loader: '@vercel/webpack-asset-relocator-loader',
+      loader: 'babel-loader',
       options: {
-        outputAssetBase: 'native_modules',
-      },
-    },
+        presets: ['@babel/preset-env']
+      }
+    }
   },
   {
     test: /\.tsx?$/,
@@ -24,5 +24,25 @@ export const rules: Required<ModuleOptions>['rules'] = [
         transpileOnly: true,
       },
     },
+  },
+  {
+    test: /\.css$/,
+    use: [
+      'style-loader',
+      {
+        loader: 'css-loader',
+        options: {
+          modules: {
+            auto: true,
+            localIdentName: '[name]__[local]__[hash:base64:5]',
+          },
+          importLoaders: 1,
+        },
+      },
+    ],
+  },
+  {
+    test: /\.(png|svg|jpg|jpeg|gif|ico)$/i,
+    type: 'asset/resource',
   },
 ];

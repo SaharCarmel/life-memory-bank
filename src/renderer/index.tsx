@@ -1,22 +1,24 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { AppContainer } from './components/AppContainer';
+import { ServiceContainer } from '../shared/services/ServiceContainer';
+import { EventEmitter } from '../shared/events/EventEmitter';
+import '../index.css';
 
-const App: React.FC = () => {
-  return (
-    <div className="container">
-      <div className="window-info">
-        <h1>VoiceMCP</h1>
-        <p>Window Management Test</p>
-      </div>
-      <div className="controls">
-        <button onClick={() => window.close()}>Close Window</button>
-      </div>
-    </div>
-  );
-};
+// Initialize services and event emitter
+const services = new ServiceContainer();
+const events = new EventEmitter();
 
-const container = document.getElementById('root');
-if (container) {
-  const root = createRoot(container);
-  root.render(<App />);
+// Create root element
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element not found');
 }
+
+// Create React root and render app
+const root = createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <AppContainer services={services} events={events} />
+  </React.StrictMode>
+);

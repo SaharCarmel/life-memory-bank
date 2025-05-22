@@ -1,10 +1,14 @@
 import { app } from 'electron';
 import { windowManager } from './window/index';
+import { setupWindowHandlers } from './window/handlers';
 import path from 'path';
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
+// Handle squirrel events for Windows
+if (process.platform === 'win32') {
+  const squirrelStartup = require('electron-squirrel-startup');
+  if (squirrelStartup) {
+    app.quit();
+  }
 }
 
 app.on('ready', () => {
@@ -12,6 +16,8 @@ app.on('ready', () => {
   const mainWindow = windowManager.createWindow('main', {
     width: 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
     persistState: true,
     webPreferences: {
       nodeIntegration: false,
@@ -20,8 +26,15 @@ app.on('ready', () => {
     }
   });
 
+  // Set up window control handlers
+  setupWindowHandlers(mainWindow);
+
   // Load the index.html of the app
-  mainWindow.loadFile(path.join(__dirname, '../index.html'));
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:3000/main_window');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
+  }
 
   // Open DevTools in development
   if (process.env.NODE_ENV === 'development') {
@@ -42,6 +55,8 @@ app.on('activate', () => {
     const mainWindow = windowManager.createWindow('main', {
       width: 1200,
       height: 800,
+      frame: false,
+      titleBarStyle: 'hidden',
       persistState: true,
       webPreferences: {
         nodeIntegration: false,
@@ -49,6 +64,11 @@ app.on('activate', () => {
         preload: path.join(__dirname, '../preload.js')
       }
     });
-    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+    if (process.env.NODE_ENV === 'development') {
+      mainWindow.loadURL('http://localhost:3000/main_window');
+    } else {
+      mainWindow.loadFile(path.join(__dirname, '../renderer/main_window/index.html'));
+    }
+    setupWindowHandlers(mainWindow);
   }
 });

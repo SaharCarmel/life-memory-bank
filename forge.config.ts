@@ -16,7 +16,8 @@ const config: ForgeConfig = {
       appleId: process.env.APPLE_ID,
       appleIdPassword: process.env.APPLE_PASSWORD || '',
       teamId: process.env.APPLE_TEAM_ID || ''
-    } : undefined
+    } : undefined,
+    asar: true,
   },
   rebuildConfig: {},
   makers: [
@@ -33,9 +34,9 @@ const config: ForgeConfig = {
         config: rendererConfig,
         entryPoints: [
           {
+            name: 'main_window',
             html: './src/index.html',
             js: './src/renderer/index.tsx',
-            name: 'main_window',
             preload: {
               js: './src/preload.ts'
             }
@@ -43,7 +44,8 @@ const config: ForgeConfig = {
         ]
       },
       port: 3000,
-      loggerPort: 9000
+      loggerPort: 9000,
+      devContentSecurityPolicy: `default-src 'self' 'unsafe-inline' data:; script-src 'self' 'unsafe-eval' 'unsafe-inline' data:`
     })
   ]
 };

@@ -1,27 +1,36 @@
 {
   "compilerOptions": {
     "target": "ES2021",
-    "allowJs": true,
     "module": "commonjs",
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "noImplicitAny": true,
+    "lib": ["dom", "es2021"],
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "outDir": "dist",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
     "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "allowJs": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@services/*": ["src/shared/services/*"]
+      "@shared/*": ["src/shared/*"],
+      "@services/*": ["src/shared/services/*"],
+      "@events/*": ["src/shared/events/*"]
     },
-    "typeRoots": [
-      "node_modules/@types",
-      "src/declarations.d.ts"
-    ],
-    "types": ["electron", "node"]
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "include": ["src/**/*", "webpack.*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", ".webpack"]
 }

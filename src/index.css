@@ -1,115 +1,56 @@
-:root {
-  --primary-color: #007bff;
-  --secondary-color: #6c757d;
-  --success-color: #28a745;
-  --danger-color: #dc3545;
-  --background-color: #f8f9fa;
-  --text-color: #212529;
-  --border-color: #dee2e6;
-}
-
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: var(--background-color);
-  color: var(--text-color);
-  line-height: 1.5;
-}
-
-#app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 1rem;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-#app-version {
-  font-size: 0.8rem;
-  opacity: 0.8;
-}
-
-main {
-  flex: 1;
-  padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
+html, body {
   width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-#recording-controls {
-  text-align: center;
-  margin-bottom: 2rem;
+#root {
+  width: 100%;
+  height: 100%;
 }
 
-#record-button {
-  background-color: var(--primary-color);
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 50px;
-  font-size: 1.1rem;
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
   cursor: pointer;
-  transition: background-color 0.2s;
+  border: none;
+  background: none;
+  outline: none;
 }
 
-#record-button:hover {
-  background-color: #0056b3;
+button:focus {
+  outline: none;
 }
 
-#record-button.recording {
-  background-color: var(--danger-color);
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-#recording-status {
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: var(--secondary-color);
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
 }
 
-#recordings-list {
-  background-color: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 4px;
 }
 
-footer {
-  background-color: white;
-  border-top: 1px solid var(--border-color);
-  padding: 1rem;
-}
-
-#status-bar {
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--secondary-color);
-}
-
-/* Responsive Design */
-@media (max-width: 600px) {
-  main {
-    padding: 1rem;
-  }
-
-  #record-button {
-    padding: 0.8rem 1.6rem;
-    font-size: 1rem;
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
 }

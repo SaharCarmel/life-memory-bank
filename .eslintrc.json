@@ -12,30 +12,36 @@
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
+    "project": "tsconfig.json",
+    "tsconfigRootDir": ".",
+    "ecmaFeatures": {
+      "jsx": true
+    },
     "ecmaVersion": 2021,
-    "sourceType": "module",
-    "project": "voice-mcp/tsconfig.json",
-    "tsconfigRootDir": "/Users/saharcarmel/Code/personal/VoiceMCP"
+    "sourceType": "module"
   },
   "plugins": ["@typescript-eslint", "import"],
   "rules": {
-    "import/no-unresolved": "error",
     "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/no-explicit-any": "off"
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "import/no-unresolved": "error"
   },
   "settings": {
     "import/resolver": {
       "typescript": {
         "alwaysTryTypes": true,
-        "project": "voice-mcp/tsconfig.json"
-      },
-      "alias": {
-        "map": [
-          ["@", "./voice-mcp/src"],
-          ["@services", "./voice-mcp/src/shared/services"]
-        ],
-        "extensions": [".ts", ".tsx", ".js", ".jsx", ".json"]
+        "project": "tsconfig.json"
       }
     }
-  }
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".webpack",
+    "*.config.ts",
+    "*.config.js",
+    "*.cjs"
+  ]
 }

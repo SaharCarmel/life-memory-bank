@@ -24,6 +24,8 @@ export class WindowManager implements IWindowManager {
         this.createWindow('main', {
           width: 1200,
           height: 800,
+          frame: false,
+          titleBarStyle: 'hidden',
           persistState: true,
           webPreferences: {
             nodeIntegration: false,
@@ -46,6 +48,8 @@ export class WindowManager implements IWindowManager {
 
     const window = new BrowserWindow({
       ...options,
+      frame: options.frame ?? false,
+      titleBarStyle: options.titleBarStyle ?? 'hidden',
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,

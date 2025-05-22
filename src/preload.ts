@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld(
       getVersion: () => ipcRenderer.invoke(IpcChannels.GET_APP_VERSION),
       quit: () => ipcRenderer.invoke(IpcChannels.QUIT_APP),
     },
+    window: {
+      minimize: () => ipcRenderer.send(IpcChannels.WINDOW_MINIMIZE),
+      maximize: () => ipcRenderer.send(IpcChannels.WINDOW_MAXIMIZE),
+      close: () => ipcRenderer.send(IpcChannels.WINDOW_CLOSE),
+    },
     onRecordingStatus: (callback: (status: string) => void) => {
       ipcRenderer.on(IpcChannels.RECORDING_STATUS, (_, status) => callback(status));
       return () => {

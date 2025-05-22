@@ -14,6 +14,40 @@ export enum IpcChannels {
   // App channels
   GET_APP_VERSION = 'app:getVersion',
   QUIT_APP = 'app:quit',
+
+  // Window channels
+  WINDOW_MINIMIZE = 'window:minimize',
+  WINDOW_MAXIMIZE = 'window:maximize',
+  WINDOW_UNMAXIMIZE = 'window:unmaximize',
+  WINDOW_CLOSE = 'window:close',
+}
+
+// Window related types
+export interface WindowState {
+  isMaximized: boolean;
+  isMinimized: boolean;
+  isVisible: boolean;
+  isFocused: boolean;
+}
+
+// Electron API type definition
+export interface ElectronAPI {
+  recording: {
+    start: () => Promise<void>;
+    stop: () => Promise<void>;
+    pause: () => Promise<void>;
+    resume: () => Promise<void>;
+  };
+  app: {
+    getVersion: () => Promise<string>;
+    quit: () => Promise<void>;
+  };
+  window: {
+    minimize: () => void;
+    maximize: () => void;
+    close: () => void;
+  };
+  onRecordingStatus: (callback: (status: string) => void) => () => void;
 }
 
 // Recording related types
@@ -131,3 +165,9 @@ export type AppEvent =
   | { type: 'TRANSCRIPTION_COMPLETED'; payload: TranscriptionResult }
   | { type: 'TRANSCRIPTION_FAILED'; payload: AppError }
   | { type: 'SETTINGS_UPDATED'; payload: Partial<AppSettings> };
+
+declare global {
+  interface Window {
+    electron: ElectronAPI;
+  }
+}

@@ -1,11 +1,14 @@
-/**
- * Shared module exports for VoiceMCP
- * 
- * This module provides a centralized export point for all shared functionality.
- * Import from this module using:
- * import { ... } from '../shared';
- */
+// Re-export events system
+export * from './events';
 
+// Re-export services system
+export * from './services';
+
+// Re-export types
 export * from './types';
-export * from './constants';
+
+// Re-export utils
 export * from './utils';
+
+// Re-export constants
+export * from './constants';
