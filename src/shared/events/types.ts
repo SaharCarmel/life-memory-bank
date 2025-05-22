@@ -30,6 +30,10 @@ export enum EventType {
   TRANSCRIPTION_COMPLETED = 'transcription:completed',
   TRANSCRIPTION_ERROR = 'transcription:error',
   TRANSCRIPTION_PROGRESS = 'transcription:progress',
+  TRANSCRIPTION_FAILED = 'transcription:failed',
+  TRANSCRIPTION_JOB_CREATED = 'transcription:job-created',
+  TRANSCRIPTION_JOB_STARTED = 'transcription:job-started',
+  TRANSCRIPTION_JOB_CANCELLED = 'transcription:job-cancelled',
 
   // Application events
   APP_READY = 'app:ready',
@@ -92,19 +96,45 @@ export interface RecordingErrorEvent extends RecordingEvent {
  * Transcription event interfaces
  */
 export interface TranscriptionEvent extends BaseEvent {
-  transcriptionId: string;
+  jobId: string;
   recordingId: string;
 }
 
 export interface TranscriptionProgressEvent extends TranscriptionEvent {
   type: EventType.TRANSCRIPTION_PROGRESS;
   progress: number;
+  message?: string;
 }
 
 export interface TranscriptionCompletedEvent extends TranscriptionEvent {
   type: EventType.TRANSCRIPTION_COMPLETED;
-  transcript: string;
-  language: string;
+  result: {
+    text: string;
+    language: string;
+    segments: Array<{
+      start: number;
+      end: number;
+      text: string;
+    }>;
+  };
+}
+
+export interface TranscriptionFailedEvent extends TranscriptionEvent {
+  type: EventType.TRANSCRIPTION_FAILED;
+  error: string;
+  details?: string;
+}
+
+export interface TranscriptionJobCreatedEvent extends TranscriptionEvent {
+  type: EventType.TRANSCRIPTION_JOB_CREATED;
+}
+
+export interface TranscriptionJobStartedEvent extends TranscriptionEvent {
+  type: EventType.TRANSCRIPTION_JOB_STARTED;
+}
+
+export interface TranscriptionJobCancelledEvent extends TranscriptionEvent {
+  type: EventType.TRANSCRIPTION_JOB_CANCELLED;
 }
 
 /**

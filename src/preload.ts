@@ -27,6 +27,13 @@ contextBridge.exposeInMainWorld(
       deleteRecording: (filepath: string) => ipcRenderer.invoke('storage:delete-recording', filepath),
       getRecordingInfo: (recordingId: string) => ipcRenderer.invoke('storage:get-recording-info', recordingId),
     },
+    transcription: {
+      transcribeRecording: (recordingId: string) => ipcRenderer.invoke('transcription:transcribe-recording', recordingId),
+      transcribeMultiple: (recordingIds: string[]) => ipcRenderer.invoke('transcription:transcribe-multiple', recordingIds),
+      getStatus: (jobId: string) => ipcRenderer.invoke('transcription:get-status', jobId),
+      cancel: (jobId: string) => ipcRenderer.invoke('transcription:cancel', jobId),
+      loadTranscript: (recordingId: string) => ipcRenderer.invoke('transcription:load-transcript', recordingId),
+    },
     onRecordingStatus: (callback: (status: string) => void) => {
       ipcRenderer.on(IpcChannels.RECORDING_STATUS, (_, status) => callback(status));
       return () => {
@@ -48,6 +55,24 @@ contextBridge.exposeInMainWorld(
       return () => {
         console.log('[Preload] Removing RECORDING_COMPLETED listener');
         ipcRenderer.removeAllListeners(IpcChannels.RECORDING_COMPLETED);
+      };
+    },
+    onTranscriptionProgress: (callback: (data: { jobId: string; recordingId: string; progress: number; message: string }) => void) => {
+      ipcRenderer.on('transcription:progress', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('transcription:progress');
+      };
+    },
+    onTranscriptionCompleted: (callback: (data: { jobId: string; recordingId: string; result: any }) => void) => {
+      ipcRenderer.on('transcription:completed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('transcription:completed');
+      };
+    },
+    onTranscriptionFailed: (callback: (data: { jobId: string; recordingId: string; error: string }) => void) => {
+      ipcRenderer.on('transcription:failed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('transcription:failed');
       };
     },
   }

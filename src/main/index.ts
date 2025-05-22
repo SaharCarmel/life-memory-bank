@@ -2,12 +2,22 @@ import { app } from 'electron';
 import { windowManager } from './window/index';
 import { setupWindowHandlers } from './window/handlers';
 import { setupIpcHandlers } from './ipc/handlers';
+import { registerTranscriptionHandlers } from './ipc/transcriptionHandlers';
 import { ServiceContainer } from '../shared/services';
 import { EventEmitter } from '../shared/events';
+import { PythonEnvironment } from './python/PythonEnvironment';
+import { WhisperService } from './whisper/WhisperService';
+import { StorageService } from './storage/StorageService';
 
 // Initialize service container
 const serviceContainer = new ServiceContainer();
-serviceContainer.register('EventEmitter', () => new EventEmitter(), { singleton: true });
+const eventEmitter = new EventEmitter();
+serviceContainer.register('EventEmitter', () => eventEmitter, { singleton: true });
+
+// Initialize transcription services
+const pythonEnv = new PythonEnvironment();
+const whisperService = new WhisperService(pythonEnv, eventEmitter);
+const storageService = new StorageService();
 
 // Handle squirrel events for Windows
 if (process.platform === 'win32') {
@@ -21,7 +31,7 @@ if (process.platform === 'win32') {
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 
-app.on('ready', () => {
+app.on('ready', async () => {
   // Set up IPC handlers
   setupIpcHandlers(serviceContainer);
   
@@ -39,6 +49,9 @@ app.on('ready', () => {
     }
   });
 
+  // Set up transcription handlers
+  registerTranscriptionHandlers(whisperService, storageService, mainWindow, eventEmitter);
+
   // Set up window control handlers
   setupWindowHandlers(mainWindow);
 
@@ -48,6 +61,14 @@ app.on('ready', () => {
   // Open DevTools in development
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
+  }
+
+  // Initialize WhisperService in the background
+  try {
+    await whisperService.initialize();
+    console.log('WhisperService initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize WhisperService:', error);
   }
 });
 
@@ -75,5 +96,13 @@ app.on('activate', () => {
     });
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
     setupWindowHandlers(mainWindow);
+    
+    // Re-register transcription handlers for new window
+    registerTranscriptionHandlers(whisperService, storageService, mainWindow, eventEmitter);
   }
+});
+
+// Clean up on app quit
+app.on('before-quit', () => {
+  whisperService.dispose();
 });

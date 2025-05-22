@@ -17,6 +17,10 @@ export interface RecordingMetadata {
   duration?: number;
   size?: number;
   format: string;
+  transcriptStatus?: 'none' | 'processing' | 'completed' | 'failed';
+  transcriptPath?: string;
+  transcriptError?: string;
+  transcriptProgress?: number; // 0-100 for progress tracking
 }
 
 export interface ActiveRecording {
@@ -25,6 +29,22 @@ export interface ActiveRecording {
   writeStream: fs.WriteStream;
   chunks: Buffer[];
   isFinalized: boolean;
+}
+
+// Import TranscriptionResult from whisper types
+export interface TranscriptStorage {
+  recordingId: string;
+  transcribedAt: Date;
+  result: {
+    text: string;
+    language: string;
+    segments: Array<{
+      start: number;
+      end: number;
+      text: string;
+    }>;
+  };
+  version: string;
 }
 
 export class StorageService {
@@ -278,6 +298,10 @@ export class StorageService {
       // Generate a unique ID based on the filename
       const id = `${dateStr}_${timeStr}_${uuid}`;
 
+      // Check for transcript file
+      const transcriptPath = this.getTranscriptPath(filepath);
+      const hasTranscript = await this.hasTranscript(filepath);
+
       return {
         id,
         filename,
@@ -286,7 +310,9 @@ export class StorageService {
         endTime: new Date(stats.mtime), // Use file modification time as end time
         duration: (stats.mtime.getTime() - startTime.getTime()) / 1000,
         size: stats.size,
-        format: 'webm'
+        format: 'webm',
+        transcriptStatus: hasTranscript ? 'completed' : 'none',
+        transcriptPath: hasTranscript ? transcriptPath : undefined
       };
     } catch (error) {
       console.error(`Failed to extract metadata from ${filepath}:`, error);
@@ -297,9 +323,96 @@ export class StorageService {
   public async deleteRecording(filepath: string): Promise<void> {
     try {
       await fs.promises.unlink(filepath);
+      
+      // Also delete transcript if it exists
+      const transcriptPath = this.getTranscriptPath(filepath);
+      if (await this.hasTranscript(filepath)) {
+        await fs.promises.unlink(transcriptPath);
+        console.log(`Transcript deleted: ${transcriptPath}`);
+      }
+      
       console.log(`Recording deleted: ${filepath}`);
     } catch (error) {
       throw new Error(`Failed to delete recording: ${error}`);
     }
+  }
+
+  // Transcript-related methods
+  public getTranscriptPath(recordingFilepath: string): string {
+    const dir = path.dirname(recordingFilepath);
+    const basename = path.basename(recordingFilepath, '.webm');
+    return path.join(dir, `${basename}.transcript.json`);
+  }
+
+  public async hasTranscript(recordingFilepath: string): Promise<boolean> {
+    const transcriptPath = this.getTranscriptPath(recordingFilepath);
+    try {
+      await fs.promises.access(transcriptPath, fs.constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async saveTranscript(recordingId: string, transcript: TranscriptStorage['result']): Promise<string> {
+    try {
+      // Find the recording metadata to get the filepath
+      const recordings = await this.listRecordings();
+      const recording = recordings.find(r => r.id === recordingId);
+      
+      if (!recording) {
+        throw new Error(`Recording not found: ${recordingId}`);
+      }
+
+      const transcriptPath = this.getTranscriptPath(recording.filepath);
+      
+      const transcriptData: TranscriptStorage = {
+        recordingId,
+        transcribedAt: new Date(),
+        result: transcript,
+        version: '1.0'
+      };
+
+      await fs.promises.writeFile(transcriptPath, JSON.stringify(transcriptData, null, 2), 'utf8');
+      
+      console.log(`Transcript saved: ${transcriptPath}`);
+      return transcriptPath;
+    } catch (error) {
+      console.error(`Failed to save transcript for recording ${recordingId}:`, error);
+      throw new Error(`Failed to save transcript: ${error}`);
+    }
+  }
+
+  public async loadTranscript(recordingId: string): Promise<TranscriptStorage['result'] | null> {
+    try {
+      // Find the recording metadata to get the filepath
+      const recordings = await this.listRecordings();
+      const recording = recordings.find(r => r.id === recordingId);
+      
+      if (!recording) {
+        throw new Error(`Recording not found: ${recordingId}`);
+      }
+
+      const transcriptPath = this.getTranscriptPath(recording.filepath);
+      
+      if (!(await this.hasTranscript(recording.filepath))) {
+        return null;
+      }
+
+      const transcriptData = await fs.promises.readFile(transcriptPath, 'utf8');
+      const parsed: TranscriptStorage = JSON.parse(transcriptData);
+      
+      return parsed.result;
+    } catch (error) {
+      console.error(`Failed to load transcript for recording ${recordingId}:`, error);
+      return null;
+    }
+  }
+
+  public async updateTranscriptStatus(recordingId: string, status: RecordingMetadata['transcriptStatus'], progress?: number, error?: string): Promise<void> {
+    // This method would typically update a database record
+    // For now, we'll just log the status change
+    // In a full implementation, you might want to store metadata in SQLite
+    console.log(`Transcript status updated for ${recordingId}: ${status}${progress !== undefined ? ` (${progress}%)` : ''}${error ? ` - ${error}` : ''}`);
   }
 }
