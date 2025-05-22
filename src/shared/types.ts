@@ -10,6 +10,8 @@ export enum IpcChannels {
   RECORDING_PAUSE = 'recording:pause',
   RECORDING_RESUME = 'recording:resume',
   RECORDING_STATUS = 'recording:status',
+  AUDIO_LEVEL_UPDATE = 'audio:levelUpdate',
+  AUDIO_DATA_CHUNK = 'audio:dataChunk',
   
   // App channels
   GET_APP_VERSION = 'app:getVersion',
@@ -48,6 +50,7 @@ export interface ElectronAPI {
     close: () => void;
   };
   onRecordingStatus: (callback: (status: string) => void) => () => void;
+  onAudioLevelUpdate: (callback: (data: { level: number; peak: number; timestamp: number }) => void) => () => void;
 }
 
 // Recording related types

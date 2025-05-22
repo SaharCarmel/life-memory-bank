@@ -1,9 +1,18 @@
 import { ipcMain, app, BrowserWindow } from 'electron';
 import { IpcChannels, ErrorCode, createError } from '../../shared';
+import { AudioService } from '../audio';
+import { RecordingState } from '../../shared/types/audio';
+import { ServiceContainer } from '../../shared/services';
+import { StorageService } from '../storage/StorageService';
 
-let isRecording = false;
+let audioService: AudioService;
+let audioLevelInterval: NodeJS.Timeout | null = null;
+let storageService: StorageService | null = null;
+let currentRecordingId: string | null = null;
 
-export function setupIpcHandlers(): void {
+export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
+  // Initialize AudioService with the service container
+  audioService = new AudioService({}, serviceContainer);
   // App handlers
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => {
     return app.getVersion();
@@ -16,19 +25,37 @@ export function setupIpcHandlers(): void {
   // Recording handlers
   ipcMain.handle(IpcChannels.RECORDING_START, async () => {
     try {
-      if (isRecording) {
+      if (audioService.getState() !== RecordingState.IDLE) {
         throw createError(
           ErrorCode.RECORDING_FAILED,
           'Recording is already in progress'
         );
       }
       
-      // TODO: Implement actual recording logic
-      isRecording = true;
+      await audioService.startRecording();
+      
+      // Initialize storage service and start recording
+      storageService = new StorageService();
+      currentRecordingId = storageService.startRecording();
+      console.log(`Started recording with ID: ${currentRecordingId}`);
+      
+      // Start streaming audio levels to renderer
+      if (audioLevelInterval) {
+        clearInterval(audioLevelInterval);
+      }
+      
+      audioLevelInterval = setInterval(() => {
+        const levelData = audioService.getAudioLevel();
+        BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
+          window.webContents.send(IpcChannels.AUDIO_LEVEL_UPDATE, levelData);
+        });
+      }, 50);
+      
       // Send status update to renderer
       BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
         window.webContents.send(IpcChannels.RECORDING_STATUS, 'Recording in progress...');
       });
+      
       return { success: true };
     } catch (error) {
       throw createError(
@@ -41,20 +68,44 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(IpcChannels.RECORDING_STOP, async () => {
     try {
-      if (!isRecording) {
+      const state = audioService.getState();
+      if (state !== RecordingState.RECORDING && state !== RecordingState.PAUSED) {
         throw createError(
           ErrorCode.RECORDING_FAILED,
           'No recording in progress'
         );
       }
       
-      // TODO: Implement actual stop logic
-      isRecording = false;
+      const result = await audioService.stopRecording();
+      
+      // Finalize the recording in storage
+      let metadata = null;
+      if (storageService && currentRecordingId) {
+        metadata = await storageService.finalizeRecording(currentRecordingId);
+        console.log(`Recording saved to: ${metadata.filepath}`);
+        storageService = null;
+        currentRecordingId = null;
+      }
+      
+      // Stop audio level streaming
+      if (audioLevelInterval) {
+        clearInterval(audioLevelInterval);
+        audioLevelInterval = null;
+      }
+      
       // Send status update to renderer
       BrowserWindow.getAllWindows().forEach((window: BrowserWindow) => {
         window.webContents.send(IpcChannels.RECORDING_STATUS, 'Recording stopped');
       });
-      return { success: true };
+      
+      return { 
+        success: true,
+        result: {
+          filename: result.filename,
+          duration: result.duration,
+          size: result.size
+        }
+      };
     } catch (error) {
       throw createError(
         ErrorCode.RECORDING_FAILED,
@@ -66,14 +117,14 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(IpcChannels.RECORDING_PAUSE, async () => {
     try {
-      if (!isRecording) {
+      if (audioService.getState() !== RecordingState.RECORDING) {
         throw createError(
           ErrorCode.RECORDING_FAILED,
           'No recording in progress'
         );
       }
       
-      // TODO: Implement actual pause logic
+      await audioService.pauseRecording();
       return { success: true };
     } catch (error) {
       throw createError(
@@ -86,14 +137,14 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(IpcChannels.RECORDING_RESUME, async () => {
     try {
-      if (!isRecording) {
+      if (audioService.getState() !== RecordingState.PAUSED) {
         throw createError(
           ErrorCode.RECORDING_FAILED,
-          'No recording in progress'
+          'Recording is not paused'
         );
       }
       
-      // TODO: Implement actual resume logic
+      await audioService.resumeRecording();
       return { success: true };
     } catch (error) {
       throw createError(
@@ -102,5 +153,25 @@ export function setupIpcHandlers(): void {
         error
       );
     }
+  });
+  
+  // Handle audio data chunks
+  ipcMain.on(IpcChannels.AUDIO_DATA_CHUNK, (event, chunk: any) => {
+    try {
+      if (storageService && currentRecordingId && chunk && chunk.data) {
+        const buffer = Buffer.from(chunk.data);
+        storageService.writeChunk(currentRecordingId, buffer);
+      }
+    } catch (error) {
+      console.error('Failed to process audio chunk:', error);
+    }
+  });
+  
+  // Clean up on app quit
+  app.on('before-quit', () => {
+    if (audioLevelInterval) {
+      clearInterval(audioLevelInterval);
+    }
+    audioService.dispose();
   });
 }

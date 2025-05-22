@@ -2,6 +2,12 @@ import { app } from 'electron';
 import { windowManager } from './window/index';
 import { setupWindowHandlers } from './window/handlers';
 import { setupIpcHandlers } from './ipc/handlers';
+import { ServiceContainer } from '../shared/services';
+import { EventEmitter } from '../shared/events';
+
+// Initialize service container
+const serviceContainer = new ServiceContainer();
+serviceContainer.register('EventEmitter', () => new EventEmitter(), { singleton: true });
 
 // Handle squirrel events for Windows
 if (process.platform === 'win32') {
@@ -17,7 +23,7 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 
 app.on('ready', () => {
   // Set up IPC handlers
-  setupIpcHandlers();
+  setupIpcHandlers(serviceContainer);
   
   // Create main window
   const mainWindow = windowManager.createWindow('main', {

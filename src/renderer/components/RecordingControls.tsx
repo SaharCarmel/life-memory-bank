@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './RecordingControls.module.css';
+import { RecorderService, AudioLevelMonitor } from '../services';
 
 interface RecordingControlsProps {
   onError?: (error: Error) => void;
@@ -10,19 +11,62 @@ type RecordingState = 'idle' | 'recording' | 'paused' | 'stopping';
 export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError }) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
-  const [audioLevel] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
+  
+  // Service instances
+  const recorderRef = useRef<RecorderService | null>(null);
+  const audioMonitorRef = useRef<AudioLevelMonitor | null>(null);
+  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle recording button click
   const handleRecordClick = useCallback(async () => {
     try {
       if (recordingState === 'idle') {
+        // Create new recorder instance
+        recorderRef.current = new RecorderService();
+        audioMonitorRef.current = new AudioLevelMonitor();
+        
+        // Set up event listeners
+        recorderRef.current.on('start', () => {
+          console.log('Recording started');
+        });
+        
+        recorderRef.current.on('data', async (chunk) => {
+          // Send audio data to main process for storage
+          await window.electron.recording.sendAudioData(chunk);
+        });
+        
+        recorderRef.current.on('error', (error) => {
+          console.error('Recording error:', error);
+          setRecordingState('idle');
+          onError?.(error);
+        });
+        
         // Start recording
         setRecordingState('recording');
         try {
-          const result = await window.electron.recording.start() as unknown as { success: boolean };
-          if (!result.success) {
-            setRecordingState('idle');
+          // Call the main process to start recording
+          const result = await window.electron.recording.start();
+          console.log('Main process recording start result:', result);
+          
+          await recorderRef.current.start();
+          
+          // Start audio level monitoring
+          const devices = await recorderRef.current.getDevices();
+          if (devices.length > 0) {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: { deviceId: devices[0].deviceId }
+            });
+            
+            audioMonitorRef.current.on('level', (levelData) => {
+              setAudioLevel(levelData.level);
+            });
+            
+            await audioMonitorRef.current.start(stream);
           }
+          
+          // Start duration tracking
+          setDuration(0);
         } catch (err) {
           setRecordingState('idle');
           throw err;
@@ -31,10 +75,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
         // Pause recording
         setRecordingState('paused');
         try {
-          const result = await window.electron.recording.pause() as unknown as { success: boolean };
-          if (!result.success) {
-            setRecordingState('recording');
-          }
+          recorderRef.current?.pause();
         } catch (err) {
           setRecordingState('recording');
           throw err;
@@ -43,10 +84,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
         // Resume recording
         setRecordingState('recording');
         try {
-          const result = await window.electron.recording.resume() as unknown as { success: boolean };
-          if (!result.success) {
-            setRecordingState('paused');
-          }
+          recorderRef.current?.resume();
         } catch (err) {
           setRecordingState('paused');
           throw err;
@@ -62,13 +100,29 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
   const handleStopClick = useCallback(async () => {
     try {
       setRecordingState('stopping');
-      const result = await window.electron.recording.stop() as unknown as { success: boolean };
-      if (result.success) {
-        setRecordingState('idle');
-        setDuration(0);
-      } else {
-        setRecordingState('idle');
+      
+      if (recorderRef.current) {
+        const audioBlob = await recorderRef.current.stop();
+        console.log('Recording stopped, blob size:', audioBlob.size);
+        
+        // Call the main process to stop recording
+        const result = await window.electron.recording.stop();
+        console.log('Main process recording stop result:', result);
+        
+        console.log('Recording completed');
       }
+      
+      if (audioMonitorRef.current) {
+        audioMonitorRef.current.stop();
+      }
+      
+      // Clean up
+      recorderRef.current = null;
+      audioMonitorRef.current = null;
+      
+      setRecordingState('idle');
+      setDuration(0);
+      setAudioLevel(0);
     } catch (error) {
       console.error('Stop recording error:', error);
       setRecordingState('idle');
@@ -80,28 +134,29 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError })
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
-    if (recordingState === 'recording') {
-      const startTime = Date.now() - duration * 1000;
+    if (recordingState === 'recording' || recordingState === 'paused') {
       interval = setInterval(() => {
-        setDuration(Math.floor((Date.now() - startTime) / 1000));
+        if (recorderRef.current) {
+          const durationMs = recorderRef.current.getDuration();
+          setDuration(Math.floor(durationMs / 1000));
+        }
       }, 100);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [recordingState, duration]);
+  }, [recordingState]);
 
-  // Listen for audio level updates
+  // Cleanup on unmount
   useEffect(() => {
-    // TODO: Set up IPC listener for audio levels
-    // const handleAudioLevel = (level: number) => {
-    //   setAudioLevel(level);
-    // };
-    // window.electron.recording.onAudioLevel(handleAudioLevel);
-
     return () => {
-      // TODO: Clean up listener
+      if (recorderRef.current) {
+        recorderRef.current.dispose();
+      }
+      if (audioMonitorRef.current) {
+        audioMonitorRef.current.dispose();
+      }
     };
   }, []);
 
