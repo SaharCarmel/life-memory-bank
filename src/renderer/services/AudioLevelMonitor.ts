@@ -15,7 +15,6 @@ export class AudioLevelMonitor extends EventEmitter {
   private updateInterval: NodeJS.Timeout | null = null;
   private peakLevel: number = 0;
   private peakDecayRate: number = 0.95;
-  private stream: MediaStream | null = null;
 
   constructor(private options: AudioLevelMonitorOptions = {}) {
     super();
@@ -33,7 +32,6 @@ export class AudioLevelMonitor extends EventEmitter {
     }
 
     try {
-      this.stream = stream;
       
       // Create audio context
       this.audioContext = new AudioContext();
@@ -150,7 +148,6 @@ export class AudioLevelMonitor extends EventEmitter {
     }
 
     this.dataArray = null;
-    this.stream = null;
     this.peakLevel = 0;
   }
 

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { app } from 'electron';
 
 export interface PythonSetupOptions {
@@ -20,7 +19,6 @@ export class PythonEnvironment {
   private basePath: string;
   private venvPath: string;
   private pythonExecutable: string;
-  private isSetup: boolean = false;
 
   constructor() {
     // Use app resources path for Python environment
@@ -92,7 +90,6 @@ export class PythonEnvironment {
         throw new Error('Environment setup completed but verification failed');
       }
 
-      this.isSetup = true;
       console.log('Python environment setup complete');
 
       return {
@@ -253,11 +250,9 @@ export class PythonEnvironment {
         stdio: 'pipe'
       });
 
-      let stdout = '';
       let stderr = '';
 
       child.stdout?.on('data', (data) => {
-        stdout += data.toString();
         console.log('uv sync:', data.toString().trim());
       });
 

@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { AudioFormat } from '@shared/types/audio';
 
 export interface RecorderOptions {
   deviceId?: string;

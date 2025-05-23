@@ -1,4 +1,4 @@
-import { app } from 'electron';
+import { app, globalShortcut } from 'electron';
 import { windowManager } from './window/index';
 import { setupWindowHandlers } from './window/handlers';
 import { setupIpcHandlers } from './ipc/handlers';
@@ -80,6 +80,26 @@ app.on('ready', async () => {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Register keyboard shortcut for DevTools (works in production too)
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
+  // Add error logging for the renderer process
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`Renderer Console [${level}]: ${message}`);
+    if (sourceId) {
+      console.log(`  Source: ${sourceId}:${line}`);
+    }
+  });
+
+  // Log when the renderer process crashes
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Renderer process gone:', details);
+  });
 
   // Initialize WhisperService in the background
   try {

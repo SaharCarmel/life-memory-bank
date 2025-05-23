@@ -1,12 +1,10 @@
 import { spawn, ChildProcess } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
-import * as path from 'path';
 import * as fs from 'fs';
 import { EventEmitter } from '@shared/events';
 import { PythonEnvironment } from '../python/PythonEnvironment';
 import {
   TranscriptionJob,
-  TranscriptionResult,
   TranscriptionRequest,
   WhisperServiceOptions,
   WhisperWorkerMessage

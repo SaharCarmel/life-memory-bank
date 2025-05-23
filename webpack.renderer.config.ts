@@ -41,7 +41,7 @@ export const rendererConfig: Configuration = {
   output: {
     filename: '[name].js',
     path: path.join(__dirname, '.webpack'),
-    publicPath: './',
+    publicPath: 'auto',
     assetModuleFilename: 'assets/[name][ext]',
   },
   target: 'web',

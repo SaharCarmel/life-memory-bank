@@ -3,7 +3,7 @@
   "productName": "VoiceMCP",
   "version": "1.0.0",
   "description": "A macOS desktop application for recording voice memos with automatic transcription using Whisper AI and MCP integration",
-  "main": ".webpack/main/index.js",
+  "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start",
     "debug": "electron-forge start -- --remote-debugging-port=9222",

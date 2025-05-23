@@ -166,7 +166,7 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
   });
   
   // Handle audio data chunks
-  ipcMain.on(IpcChannels.AUDIO_DATA_CHUNK, (event, chunk: any) => {
+  ipcMain.on(IpcChannels.AUDIO_DATA_CHUNK, (_event, chunk: any) => {
     try {
       if (storageService && currentRecordingId && chunk && chunk.data) {
         const buffer = Buffer.from(chunk.data);

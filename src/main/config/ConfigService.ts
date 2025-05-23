@@ -8,8 +8,18 @@ export interface OpenAIConfig {
   temperature: number;
 }
 
+interface StoredOpenAIConfig {
+  encryptedApiKey?: string;
+  model: string;
+  temperature: number;
+}
+
 export interface ConfigData {
   openai?: OpenAIConfig;
+}
+
+interface StoredConfigData {
+  openai?: StoredOpenAIConfig;
 }
 
 export class ConfigService {
@@ -56,15 +66,18 @@ export class ConfigService {
 
   private async saveConfig(): Promise<void> {
     try {
-      const configToSave = { ...this.config };
+      let configToSave: StoredConfigData = { ...this.config };
       
       // Encrypt sensitive data before saving
-      if (configToSave.openai?.apiKey && safeStorage.isEncryptionAvailable()) {
-        const encryptedKey = safeStorage.encryptString(configToSave.openai.apiKey);
-        const { apiKey, ...openaiConfig } = configToSave.openai;
-        configToSave.openai = { 
-          ...openaiConfig, 
-          encryptedApiKey: encryptedKey.toString('base64') 
+      if (this.config.openai?.apiKey && safeStorage.isEncryptionAvailable()) {
+        const encryptedKey = safeStorage.encryptString(this.config.openai.apiKey);
+        const { apiKey, ...openaiConfig } = this.config.openai;
+        configToSave = {
+          ...configToSave,
+          openai: { 
+            ...openaiConfig, 
+            encryptedApiKey: encryptedKey.toString('base64') 
+          }
         };
       }
 

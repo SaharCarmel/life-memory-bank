@@ -3,9 +3,6 @@ import { RecordingState, RecordingOptions, RecordingResult, AudioDevice, AudioLe
 import { EventEmitter, EventType } from '@shared/events';
 import { ServiceContainer } from '@shared/services';
 import { v4 as uuidv4 } from 'uuid';
-import { AudioRecorder } from './AudioRecorder';
-import { AudioProcessor } from './AudioProcessor';
-
 export class AudioService implements IAudioService {
   private state: RecordingState = RecordingState.IDLE;
   private recorder: IAudioRecorder | null = null;
@@ -14,13 +11,12 @@ export class AudioService implements IAudioService {
   private startTime: number = 0;
   private pausedDuration: number = 0;
   private pauseStartTime: number = 0;
-  private audioChunks: Blob[] = [];
   private eventEmitter: EventEmitter;
   private currentDeviceId?: string;
   private audioLevelInterval: NodeJS.Timeout | null = null;
   
   constructor(
-    private options: AudioServiceOptions = {},
+    _options: AudioServiceOptions = {},
     serviceContainer: ServiceContainer
   ) {
     this.eventEmitter = serviceContainer.get('EventEmitter');
@@ -51,7 +47,6 @@ export class AudioService implements IAudioService {
       // Reset timing
       this.startTime = Date.now();
       this.pausedDuration = 0;
-      this.audioChunks = [];
 
       this.setState(RecordingState.RECORDING);
       this.eventEmitter.emit({
@@ -229,21 +224,6 @@ export class AudioService implements IAudioService {
   }
 
   // Private methods
-  private async getMediaStream(options: RecordingOptions): Promise<MediaStream> {
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        deviceId: options.deviceId ? { exact: options.deviceId } : undefined,
-        sampleRate: options.sampleRate,
-        channelCount: options.channels,
-        autoGainControl: options.autoGainControl,
-        noiseSuppression: options.noiseSuppression,
-        echoCancellation: options.echoCancellation
-      },
-      video: false
-    };
-
-    return await navigator.mediaDevices.getUserMedia(constraints);
-  }
 
   private startAudioLevelMonitoring(): void {
     // Clear any existing interval
@@ -290,7 +270,5 @@ export class AudioService implements IAudioService {
       this.processor.dispose();
       this.processor = null;
     }
-
-    this.audioChunks = [];
   }
 }

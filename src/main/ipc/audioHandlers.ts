@@ -12,7 +12,7 @@ const recordingSessions = new Map<string, RecordingSession>();
 
 export function setupAudioHandlers(): void {
   // Handle recording start
-  ipcMain.handle(IpcChannels.RECORDING_START, async (event: IpcMainInvokeEvent) => {
+  ipcMain.handle(IpcChannels.RECORDING_START, async (_event: IpcMainInvokeEvent) => {
     try {
       const sessionId = Date.now().toString();
       const storageService = new StorageService();
@@ -35,7 +35,7 @@ export function setupAudioHandlers(): void {
   });
 
   // Handle recording stop
-  ipcMain.handle(IpcChannels.RECORDING_STOP, async (event: IpcMainInvokeEvent) => {
+  ipcMain.handle(IpcChannels.RECORDING_STOP, async (_event: IpcMainInvokeEvent) => {
     try {
       // Find the most recent session (for now, we'll use the first one)
       const sessionId = Array.from(recordingSessions.keys())[0];
@@ -72,7 +72,7 @@ export function setupAudioHandlers(): void {
   });
 
   // Handle audio data chunks
-  ipcMain.on(IpcChannels.AUDIO_DATA_CHUNK, (event: IpcMainEvent, chunk: any) => {
+  ipcMain.on(IpcChannels.AUDIO_DATA_CHUNK, (_event: IpcMainEvent, chunk: any) => {
     try {
       // Find the active session
       const sessionId = Array.from(recordingSessions.keys())[0];

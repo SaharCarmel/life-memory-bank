@@ -129,12 +129,13 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
     setIsEditingTitle(false);
   };
 
-  // Function to get display title
+  // Function to get display title - prioritize AI title
   const getDisplayTitle = () => {
     if (aiTitle) {
       return aiTitle;
     }
-    return formatTime(recording.startTime);
+    // Fallback to timestamp-based title when no AI title
+    return formatTimestamp(recording.startTime);
   };
 
   // Function to get summary preview
@@ -256,7 +257,18 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
     }
   };
 
+  // Format just the time for right side display
   const formatTime = (date: Date | string) => {
+    const d = new Date(date);
+    return d.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  // Format full timestamp for fallback title
+  const formatTimestamp = (date: Date | string) => {
     const d = new Date(date);
     return d.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
@@ -296,34 +308,40 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
     <>
       <div className={styles.item}>
         <div className={styles.content}>
-          <div className={styles.titleSection}>
-            {isEditingTitle ? (
-              <div className={styles.titleEdit}>
-                <input
-                  type="text"
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className={styles.titleInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveTitle();
-                    if (e.key === 'Escape') handleCancelEditTitle();
-                  }}
-                  autoFocus
-                />
-                <button onClick={handleSaveTitle} className={styles.saveButton}>✓</button>
-                <button onClick={handleCancelEditTitle} className={styles.cancelButton}>✕</button>
-              </div>
-            ) : (
-              <div className={styles.titleDisplay}>
-                <span className={`${styles.title} ${aiTitle ? styles.aiTitle : ''}`}>
-                  {getDisplayTitle()}
-                  {aiTitle && <span className={styles.aiIndicator}>🤖</span>}
-                </span>
-                {aiTitle && (
-                  <button onClick={handleEditTitle} className={styles.editButton}>✏️</button>
-                )}
-              </div>
-            )}
+          <div className={styles.mainRow}>
+            <div className={styles.titleSection}>
+              {isEditingTitle ? (
+                <div className={styles.titleEdit}>
+                  <input
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className={styles.titleInput}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveTitle();
+                      if (e.key === 'Escape') handleCancelEditTitle();
+                    }}
+                    autoFocus
+                  />
+                  <button onClick={handleSaveTitle} className={styles.saveButton}>✓</button>
+                  <button onClick={handleCancelEditTitle} className={styles.cancelButton}>✕</button>
+                </div>
+              ) : (
+                <div className={styles.titleDisplay}>
+                  <span className={`${styles.title} ${aiTitle ? styles.aiTitle : ''}`}>
+                    {getDisplayTitle()}
+                    {aiTitle && <span className={styles.aiIndicator}>🤖</span>}
+                  </span>
+                  {aiTitle && (
+                    <button onClick={handleEditTitle} className={styles.editButton}>✏️</button>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className={styles.timeDisplay}>
+              {formatTime(recording.startTime)}
+            </div>
           </div>
           
           <div className={styles.details}>

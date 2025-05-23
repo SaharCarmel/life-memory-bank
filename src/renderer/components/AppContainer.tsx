@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ServiceContainer } from '../../shared/services/ServiceContainer';
 import { EventEmitter } from '../../shared/events/EventEmitter';
 import { EventType, WindowEvent } from '../../shared/events/types';

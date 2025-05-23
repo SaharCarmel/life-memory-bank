@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { WhisperService } from '../whisper/WhisperService';
 import { StorageService } from '../storage/StorageService';
-import { TranscriptionRequest, TranscriptionJob, TranscriptionResult } from '../whisper/types';
+import { TranscriptionRequest, TranscriptionJob } from '../whisper/types';
 import { EventEmitter } from '@shared/events';
 import { 
   TranscriptionProgressEvent, 

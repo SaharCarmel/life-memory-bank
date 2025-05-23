@@ -11,15 +11,38 @@ import { rendererConfig } from './webpack.renderer.config';
 const config: ForgeConfig = {
   packagerConfig: {
     icon: './assets/icon',
-    osxSign: {},
-    osxNotarize: process.env.APPLE_ID ? {
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_PASSWORD || '',
-      teamId: process.env.APPLE_TEAM_ID || ''
-    } : undefined,
-    asar: true,
+    // Temporarily disable ASAR to debug packaging issues
+    asar: false,
+    // Add ignore patterns to exclude problematic files/directories
+    ignore: [
+      // Ignore Python virtual environments
+      /python\/\.venv/,
+      /python\/__pycache__/,
+      /\.pyc$/,
+      // Ignore common development files
+      /\.git/,
+      /\.vscode/,
+      /\.DS_Store/,
+      /node_modules\/\.cache/,
+      // Ignore memory bank and other non-essential directories
+      /memory-bank/,
+      /out/,
+      // Ignore any other problematic patterns
+      /\.log$/,
+      /\.tmp$/,
+      // Ignore temporary files
+      /\.swp$/,
+      /\.swo$/,
+      /~$/,
+      // Ignore large model files if present
+      /models/,
+      // Note: DO NOT ignore .webpack directory - it contains the compiled output!
+    ],
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    // Force rebuild of native modules
+    force: true
+  },
   makers: [
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),

@@ -17,7 +17,6 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, o
   // Service instances
   const recorderRef = useRef<RecorderService | null>(null);
   const audioMonitorRef = useRef<AudioLevelMonitor | null>(null);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle recording button click
   const handleRecordClick = useCallback(async () => {

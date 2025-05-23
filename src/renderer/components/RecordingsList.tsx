@@ -129,7 +129,7 @@ export const RecordingsList: React.FC = () => {
       
       {groupedRecordings.today.length > 0 && (
         <div className={styles.group}>
-          <h3 className={styles.groupTitle}>Today</h3>
+          <h3 className={styles.groupTitle}>💬 Today</h3>
           {groupedRecordings.today.map(recording => (
             <RecordingItem
               key={recording.id}
@@ -142,7 +142,7 @@ export const RecordingsList: React.FC = () => {
 
       {groupedRecordings.yesterday.length > 0 && (
         <div className={styles.group}>
-          <h3 className={styles.groupTitle}>Yesterday</h3>
+          <h3 className={styles.groupTitle}>💬 Yesterday</h3>
           {groupedRecordings.yesterday.map(recording => (
             <RecordingItem
               key={recording.id}
@@ -155,7 +155,7 @@ export const RecordingsList: React.FC = () => {
 
       {groupedRecordings.thisWeek.length > 0 && (
         <div className={styles.group}>
-          <h3 className={styles.groupTitle}>This Week</h3>
+          <h3 className={styles.groupTitle}>💬 This Week</h3>
           {groupedRecordings.thisWeek.map(recording => (
             <RecordingItem
               key={recording.id}
@@ -168,7 +168,7 @@ export const RecordingsList: React.FC = () => {
 
       {groupedRecordings.thisMonth.length > 0 && (
         <div className={styles.group}>
-          <h3 className={styles.groupTitle}>This Month</h3>
+          <h3 className={styles.groupTitle}>💬 This Month</h3>
           {groupedRecordings.thisMonth.map(recording => (
             <RecordingItem
               key={recording.id}
@@ -181,7 +181,7 @@ export const RecordingsList: React.FC = () => {
 
       {groupedRecordings.older.length > 0 && (
         <div className={styles.group}>
-          <h3 className={styles.groupTitle}>Older</h3>
+          <h3 className={styles.groupTitle}>💬 Older</h3>
           {groupedRecordings.older.map(recording => (
             <RecordingItem
               key={recording.id}
