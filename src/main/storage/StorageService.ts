@@ -97,10 +97,15 @@ export class StorageService {
   }
 
   private generateFilename(date: Date = new Date()): string {
-    const dateStr = date.toISOString()
-      .replace(/T/, '_')
-      .replace(/:/g, '-')
-      .replace(/\..+/, '');
+    // Format date in local timezone: YYYY-MM-DD_HH-MM-SS
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    
+    const dateStr = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
     const uuid = uuidv4().substring(0, 8);
     return `${dateStr}_${uuid}.webm`;
   }
