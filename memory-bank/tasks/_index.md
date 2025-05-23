@@ -5,7 +5,6 @@
 
 ## Pending
 - [TASK011] Concurrent Transcriptions - Enable multiple simultaneous transcriptions
-- [TASK012] Fix Transcription Progress - Show actual progress instead of hardcoded percentages
 - [TASK014] Import External Recordings - Add ability to load external audio files
 - [TASK015] OpenAI Speech-to-Text Integration - Add cloud-based transcription option
 - [TASK016] System Audio Capture & Meeting Detection - Implement dual audio recording with meeting detection
@@ -13,6 +12,7 @@
 - [TASK018] Calendar Integration & Meeting Prediction - Integrate calendars for smart meeting recording
 
 ## Completed
+- [TASK012] Fix Transcription Progress - Completed on 2025-05-23
 - [TASK019] Fix Timestamp Timezone Bug - Completed on 2025-05-23
 - [TASK013] Update Recording List UI - Completed on 2025-05-23
 - [TASK009] OpenAI Integration with LangChain - Completed on 2025-05-23

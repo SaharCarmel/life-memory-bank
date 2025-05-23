@@ -10,23 +10,34 @@ import argparse
 import traceback
 import os
 import warnings
+import threading
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Suppress warnings and redirect whisper output to stderr
+# Suppress warnings
 warnings.filterwarnings("ignore")
 os.environ["PYTHONWARNINGS"] = "ignore"
 
 try:
     import whisper
     import torch
-    import numpy as np
 except ImportError as e:
     print(json.dumps({
         "type": "error",
         "error": f"Missing dependency: {e}. Please ensure all dependencies are installed."
     }), flush=True)
     sys.exit(1)
+
+# Processing speed factors by model (real-time multiplier)
+PROCESSING_SPEED_FACTORS = {
+    "tiny": 5.0,    # 5x real-time (fastest)
+    "base": 3.0,    # 3x real-time
+    "small": 2.0,   # 2x real-time
+    "medium": 1.5,  # 1.5x real-time
+    "large": 1.0,   # 1x real-time
+    "turbo": 2.5    # 2.5x real-time (optimized)
+}
 
 
 def emit_message(message_type: str, **kwargs) -> None:
@@ -53,6 +64,62 @@ def emit_result(text: str, language: str, segments: list) -> None:
     emit_message("result", text=text, language=language, segments=segments)
 
 
+def get_audio_duration(audio_path: str) -> float:
+    """Get estimated duration of audio file in seconds."""
+    try:
+        file_size = os.path.getsize(audio_path)
+        # Rough estimate: WebM/Opus at 128kbps = ~16KB/s
+        estimated_duration = file_size / (16 * 1024)
+        return max(estimated_duration, 1.0)  # At least 1 second
+    except Exception:
+        return 60.0  # Default to 1 minute if we can't determine
+
+
+class ProgressReporter:
+    """Thread-based progress reporter for time-based estimation."""
+    
+    def __init__(self, duration: float, model_name: str):
+        self.duration = duration
+        self.model_name = model_name
+        self.start_time = time.time()
+        self.stop_event = threading.Event()
+        self.thread = None
+        
+        # Get processing speed factor
+        self.speed_factor = PROCESSING_SPEED_FACTORS.get(model_name, 2.0)
+        self.estimated_processing_time = duration / self.speed_factor
+        
+    def start(self):
+        """Start the progress reporting thread."""
+        self.thread = threading.Thread(target=self._report_progress)
+        self.thread.daemon = True
+        self.thread.start()
+        
+    def stop(self):
+        """Stop the progress reporting thread."""
+        self.stop_event.set()
+        if self.thread:
+            self.thread.join(timeout=1.0)
+            
+    def _report_progress(self):
+        """Report progress based on elapsed time."""
+        while not self.stop_event.is_set():
+            elapsed = time.time() - self.start_time
+            
+            # Calculate progress (30% to 85% range)
+            if elapsed < self.estimated_processing_time:
+                progress_ratio = elapsed / self.estimated_processing_time
+                progress = 30 + int(progress_ratio * 55)  # Map to 30-85%
+                
+                remaining_time = self.estimated_processing_time - elapsed
+                emit_progress(progress, f"Processing audio (est. {int(remaining_time)}s remaining)")
+            else:
+                # If we've exceeded estimated time, show 85% and keep waiting
+                emit_progress(85, "Processing audio (finalizing...)")
+                
+            time.sleep(1.0)
+
+
 def load_model(model_name: str = "turbo") -> whisper.Whisper:
     """Load the Whisper model."""
     try:
@@ -72,25 +139,37 @@ def load_model(model_name: str = "turbo") -> whisper.Whisper:
         raise
 
 
-def transcribe_audio(model: whisper.Whisper, audio_path: str) -> Dict[str, Any]:
-    """Transcribe audio file using Whisper."""
+def transcribe_audio(model: whisper.Whisper, audio_path: str, model_name: str = "turbo") -> Dict[str, Any]:
+    """Transcribe audio file using Whisper with time-based progress estimation."""
     try:
-        emit_progress(25, "Loading audio file...")
+        emit_progress(25, "Analyzing audio file...")
         
         # Verify file exists
         if not Path(audio_path).exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
         
-        emit_progress(30, "Starting transcription...")
+        audio_duration = get_audio_duration(audio_path)
+        speed_factor = PROCESSING_SPEED_FACTORS.get(model_name, 2.0)
+        estimated_time = audio_duration / speed_factor
         
-        # Transcribe with auto language detection
-        result = model.transcribe(
-            audio_path,
-            language=None,  # Auto-detect language
-            verbose=False,
-            word_timestamps=False,  # Keep it simple for now
-            fp16=False  # Use fp32 for CPU compatibility
-        )
+        emit_progress(30, f"Audio duration: {int(audio_duration)}s, estimated processing: {int(estimated_time)}s")
+        
+        # Start progress reporter
+        progress_reporter = ProgressReporter(audio_duration, model_name)
+        progress_reporter.start()
+        
+        try:
+            # Transcribe with verbose=False to avoid output conflicts
+            result = model.transcribe(
+                audio_path,
+                language=None,  # Auto-detect language
+                verbose=False,  # Keep quiet to avoid JSON parsing issues
+                word_timestamps=False,
+                fp16=False
+            )
+        finally:
+            # Stop progress reporter
+            progress_reporter.stop()
         
         emit_progress(85, "Processing transcription results...")
         
@@ -133,7 +212,7 @@ def main():
         model = load_model(args.model)
         
         # Transcribe audio
-        result = transcribe_audio(model, args.audio_file)
+        result = transcribe_audio(model, args.audio_file, args.model)
         
         # Save to file if requested
         if args.output:
