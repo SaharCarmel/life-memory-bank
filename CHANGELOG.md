@@ -71,12 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [TASK010] AI summary button with progress indicators
 
 ### Recent Enhancements (May 23, 2025)
-- [TASK013] Updated recording list UI with AI-generated titles
-- [TASK019] Fixed timezone bug in timestamp display
+- [TASK013] Updated recording list UI with AI-generated titles - Completed on 2025-05-23
+- [TASK019] Fixed timezone bug in timestamp display - Completed on 2025-05-23  
+- [TASK012] Improved transcription progress with time-based estimation and smooth progress indicators - Completed on 2025-05-23
 
 ### Pending Features
 - [TASK011] Concurrent transcriptions support
-- [TASK012] Real transcription progress indicators
 - [TASK014] External recording import functionality
 - [TASK015] Cloud-based OpenAI speech-to-text option
 - [TASK016] System audio capture with meeting detection
