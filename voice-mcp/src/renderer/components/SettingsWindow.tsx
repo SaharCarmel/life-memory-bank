@@ -96,6 +96,19 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
 
         await window.electron.config.setOpenAIConfig(configToSave);
       } else if (activeTab === 'transcription') {
+        // Validate transcription config
+        if (transcriptionConfig.chunkOverlap >= transcriptionConfig.chunkDuration) {
+          throw new Error('Chunk overlap must be less than chunk duration');
+        }
+        
+        if (transcriptionConfig.chunkDuration < 2 || transcriptionConfig.chunkDuration > 30) {
+          throw new Error('Chunk duration must be between 2 and 30 seconds');
+        }
+        
+        if (transcriptionConfig.chunkOverlap < 0.5 || transcriptionConfig.chunkOverlap > 5) {
+          throw new Error('Chunk overlap must be between 0.5 and 5 seconds');
+        }
+
         await window.electron.config.setRealTimeTranscriptionConfig(transcriptionConfig);
       }
       
@@ -307,6 +320,42 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                   />
                   <small className={styles.hint}>
                     Number of audio chunks to process simultaneously (1-4)
+                  </small>
+                </div>
+
+                <div className={styles.field}>
+                  <label htmlFor="chunkDuration">Chunk Duration (seconds)</label>
+                  <input
+                    id="chunkDuration"
+                    type="number"
+                    min="2"
+                    max="30"
+                    step="0.5"
+                    value={transcriptionConfig.chunkDuration}
+                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, chunkDuration: parseFloat(e.target.value) }))}
+                    className={styles.input}
+                    disabled={!transcriptionConfig.enabled}
+                  />
+                  <small className={styles.hint}>
+                    Length of audio chunks for processing (2-30 seconds). Shorter = more real-time, longer = more efficient
+                  </small>
+                </div>
+
+                <div className={styles.field}>
+                  <label htmlFor="chunkOverlap">Chunk Overlap (seconds)</label>
+                  <input
+                    id="chunkOverlap"
+                    type="number"
+                    min="0.5"
+                    max="5"
+                    step="0.5"
+                    value={transcriptionConfig.chunkOverlap}
+                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, chunkOverlap: parseFloat(e.target.value) }))}
+                    className={styles.input}
+                    disabled={!transcriptionConfig.enabled}
+                  />
+                  <small className={styles.hint}>
+                    Overlap between chunks for better continuity (0.5-5 seconds, must be less than chunk duration)
                   </small>
                 </div>
 

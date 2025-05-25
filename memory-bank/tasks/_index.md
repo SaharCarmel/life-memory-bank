@@ -1,7 +1,7 @@
 # Tasks Index
 
 ## In Progress
-- No tasks in progress
+- None currently
 
 ## Pending
 - [TASK011] Concurrent Transcriptions - Enable multiple simultaneous transcriptions
@@ -12,6 +12,8 @@
 - [TASK018] Calendar Integration & Meeting Prediction - Integrate calendars for smart meeting recording
 
 ## Completed
+- [TASK021] Make Real-Time Transcription Chunk Duration Configurable - Completed on 2025-05-25
+- [TASK020] Real-Time Transcription During Recording - Completed on 2025-05-25
 - [TASK012] Fix Transcription Progress - Completed on 2025-05-23
 - [TASK019] Fix Timestamp Timezone Bug - Completed on 2025-05-23
 - [TASK013] Update Recording List UI - Completed on 2025-05-23

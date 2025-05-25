@@ -42,8 +42,8 @@ export class RecorderService extends EventEmitter {
   private realTimeEnabled: boolean = false;
   private chunkBuffer: ProcessingChunk[] = [];
   private chunkBufferOptions: ChunkBufferOptions = {
-    chunkDuration: 5000, // 5 seconds
-    overlapDuration: 1000, // 1 second
+    chunkDuration: 5000, // 5 seconds (will be updated from config)
+    overlapDuration: 1000, // 1 second (will be updated from config)
     maxBufferSize: 20 // Keep last 20 chunks (100 seconds of audio)
   };
   private lastChunkTime: number = 0;
@@ -60,6 +60,11 @@ export class RecorderService extends EventEmitter {
     }
 
     this.realTimeEnabled = options.enableRealTimeTranscription || false;
+    
+    // Update chunk buffer options from configuration if real-time is enabled
+    if (this.realTimeEnabled) {
+      await this.updateChunkOptionsFromConfig();
+    }
     
     try {
       // Request microphone access
@@ -229,6 +234,24 @@ export class RecorderService extends EventEmitter {
 
   getProcessingChunk(chunkId: string): ProcessingChunk | undefined {
     return this.chunkBuffer.find(chunk => chunk.id === chunkId);
+  }
+
+  private async updateChunkOptionsFromConfig(): Promise<void> {
+    try {
+      // Get real-time transcription config from main process
+      const config = await window.electron.config.getRealTimeTranscriptionConfig();
+      if (config) {
+        this.chunkBufferOptions = {
+          ...this.chunkBufferOptions,
+          chunkDuration: config.chunkDuration * 1000, // Convert seconds to milliseconds
+          overlapDuration: config.chunkOverlap * 1000, // Convert seconds to milliseconds
+        };
+        console.log(`[RecorderService] Updated chunk options from config:`, this.chunkBufferOptions);
+      }
+    } catch (error) {
+      console.error('[RecorderService] Failed to load chunk options from config:', error);
+      // Continue with default values
+    }
   }
 
   private async handleRealtimeChunk(blob: Blob): Promise<void> {
