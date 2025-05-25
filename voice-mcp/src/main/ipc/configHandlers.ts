@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { configService } from '../config/ConfigService';
+import { configService, RealTimeTranscriptionConfig } from '../config/ConfigService';
 
 export function setupConfigHandlers(): void {
   // Get OpenAI configuration
@@ -81,6 +81,58 @@ export function setupConfigHandlers(): void {
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
       };
+    }
+  });
+
+  // Get real-time transcription configuration
+  ipcMain.handle('config:getRealTimeTranscription', async () => {
+    try {
+      return await configService.getRealTimeTranscriptionConfig();
+    } catch (error) {
+      console.error('Failed to get real-time transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Set real-time transcription configuration
+  ipcMain.handle('config:setRealTimeTranscription', async (_, config: RealTimeTranscriptionConfig) => {
+    try {
+      await configService.setRealTimeTranscriptionConfig(config);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to set real-time transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Update real-time transcription configuration
+  ipcMain.handle('config:updateRealTimeTranscription', async (_, updates: Partial<RealTimeTranscriptionConfig>) => {
+    try {
+      await configService.updateRealTimeTranscriptionConfig(updates);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to update real-time transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Check if real-time transcription is enabled
+  ipcMain.handle('config:isRealTimeTranscriptionEnabled', async () => {
+    try {
+      return await configService.isRealTimeTranscriptionEnabled();
+    } catch (error) {
+      console.error('Failed to check real-time transcription status:', error);
+      return false;
+    }
+  });
+
+  // Get default real-time transcription configuration
+  ipcMain.handle('config:getDefaultRealTimeTranscription', async () => {
+    try {
+      return configService.getDefaultRealTimeTranscriptionConfig();
+    } catch (error) {
+      console.error('Failed to get default real-time transcription config:', error);
+      throw error;
     }
   });
 }

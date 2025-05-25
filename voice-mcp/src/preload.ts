@@ -7,10 +7,10 @@ contextBridge.exposeInMainWorld(
   'electron',
   {
     recording: {
-      start: () => ipcRenderer.invoke(IpcChannels.RECORDING_START) as Promise<{ success: boolean }>,
-      stop: () => ipcRenderer.invoke(IpcChannels.RECORDING_STOP) as Promise<{ success: boolean }>,
-      pause: () => ipcRenderer.invoke(IpcChannels.RECORDING_PAUSE) as Promise<{ success: boolean }>,
-      resume: () => ipcRenderer.invoke(IpcChannels.RECORDING_RESUME) as Promise<{ success: boolean }>,
+      start: () => ipcRenderer.invoke(IpcChannels.RECORDING_START) as Promise<{ success: boolean; recordingId?: string; sessionId?: string; error?: string }>,
+      stop: () => ipcRenderer.invoke(IpcChannels.RECORDING_STOP) as Promise<{ success: boolean; metadata?: any; error?: string }>,
+      pause: () => ipcRenderer.invoke(IpcChannels.RECORDING_PAUSE) as Promise<{ success: boolean; error?: string }>,
+      resume: () => ipcRenderer.invoke(IpcChannels.RECORDING_RESUME) as Promise<{ success: boolean; error?: string }>,
       sendAudioData: (chunk: any) => ipcRenderer.send(IpcChannels.AUDIO_DATA_CHUNK, chunk),
     },
     app: {
@@ -34,12 +34,28 @@ contextBridge.exposeInMainWorld(
       cancel: (jobId: string) => ipcRenderer.invoke('transcription:cancel', jobId),
       loadTranscript: (recordingId: string) => ipcRenderer.invoke('transcription:load-transcript', recordingId),
     },
+    realtimeTranscription: {
+      start: (recordingId: string) => ipcRenderer.invoke('realtime-transcription:start', recordingId),
+      stop: (recordingId: string) => ipcRenderer.invoke('realtime-transcription:stop', recordingId),
+      processChunk: (recordingId: string, chunk: any) => ipcRenderer.invoke('realtime-transcription:process-chunk', recordingId, chunk),
+      getTranscript: (recordingId: string) => ipcRenderer.invoke('realtime-transcription:get-transcript', recordingId),
+      getText: (recordingId: string) => ipcRenderer.invoke('realtime-transcription:get-text', recordingId),
+      getJob: (jobId: string) => ipcRenderer.invoke('realtime-transcription:get-job', jobId),
+      cancelJob: (jobId: string) => ipcRenderer.invoke('realtime-transcription:cancel-job', jobId),
+      updateConfig: (config: any) => ipcRenderer.invoke('realtime-transcription:update-config', config),
+      getStats: () => ipcRenderer.invoke('realtime-transcription:get-stats'),
+    },
     config: {
       getOpenAIConfig: () => ipcRenderer.invoke('config:getOpenAI'),
       setOpenAIConfig: (config: { apiKey?: string; model: string; temperature: number }) => ipcRenderer.invoke('config:setOpenAI', config),
       hasOpenAIConfig: () => ipcRenderer.invoke('config:hasOpenAI'),
       testOpenAIConfig: (apiKey: string) => ipcRenderer.invoke('config:testOpenAI', apiKey),
       clearConfig: () => ipcRenderer.invoke('config:clear'),
+      getRealTimeTranscriptionConfig: () => ipcRenderer.invoke('config:getRealTimeTranscription'),
+      setRealTimeTranscriptionConfig: (config: any) => ipcRenderer.invoke('config:setRealTimeTranscription', config),
+      updateRealTimeTranscriptionConfig: (updates: any) => ipcRenderer.invoke('config:updateRealTimeTranscription', updates),
+      isRealTimeTranscriptionEnabled: () => ipcRenderer.invoke('config:isRealTimeTranscriptionEnabled'),
+      getDefaultRealTimeTranscriptionConfig: () => ipcRenderer.invoke('config:getDefaultRealTimeTranscription'),
     },
     onRecordingStatus: (callback: (status: string) => void) => {
       ipcRenderer.on(IpcChannels.RECORDING_STATUS, (_, status) => callback(status));
@@ -80,6 +96,67 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.on('transcription:failed', (_, data) => callback(data));
       return () => {
         ipcRenderer.removeAllListeners('transcription:failed');
+      };
+    },
+    // Real-time transcription event listeners
+    onRealtimeTranscriptionStarted: (callback: (data: { recordingId: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:started', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:started');
+      };
+    },
+    onRealtimeTranscriptionStopped: (callback: (data: { recordingId: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:stopped', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:stopped');
+      };
+    },
+    onRealtimeChunkQueued: (callback: (data: { recordingId: string; chunkId: string; jobId: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:chunk-queued', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:chunk-queued');
+      };
+    },
+    onRealtimeJobStarted: (callback: (data: { recordingId: string; chunkId: string; jobId: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:job-started', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:job-started');
+      };
+    },
+    onRealtimeJobCompleted: (callback: (data: { recordingId: string; chunkId: string; jobId: string; segment: any; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:job-completed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:job-completed');
+      };
+    },
+    onRealtimeJobFailed: (callback: (data: { recordingId: string; chunkId: string; jobId: string; error: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:job-failed', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:job-failed');
+      };
+    },
+    onRealtimeJobCancelled: (callback: (data: { recordingId: string; chunkId: string; jobId: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:job-cancelled', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:job-cancelled');
+      };
+    },
+    onRealtimeSegmentAdded: (callback: (data: { recordingId: string; segment: any; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:segment-added', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:segment-added');
+      };
+    },
+    onRealtimeTextUpdated: (callback: (data: { recordingId: string; text: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:text-updated', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:text-updated');
+      };
+    },
+    onRealtimeTranscriptionFinalized: (callback: (data: { recordingId: string; segments: any[]; text: string; timestamp: number }) => void) => {
+      ipcRenderer.on('realtime-transcription:finalized', (_, data) => callback(data));
+      return () => {
+        ipcRenderer.removeAllListeners('realtime-transcription:finalized');
       };
     },
     ai: {

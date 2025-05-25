@@ -22,15 +22,24 @@ export const RecordingsList: React.FC = () => {
     
     // Listen for recording completed events
     console.log('[RecordingsList] Setting up recording completed listener...');
-    const unsubscribe = window.electron.onRecordingCompleted(() => {
+    const unsubscribeRecording = window.electron.onRecordingCompleted(() => {
       console.log('[RecordingsList] Recording completed event received! Refreshing list...');
       loadRecordings();
     });
+
+    // Listen for real-time transcription finalized events
+    console.log('[RecordingsList] Setting up real-time transcription finalized listener...');
+    const unsubscribeTranscription = window.electron.onRealtimeTranscriptionFinalized(() => {
+      console.log('[RecordingsList] Real-time transcription finalized! Refreshing list...');
+      loadRecordings();
+    });
     
-    // Cleanup listener on unmount
+    // Cleanup listeners on unmount
     return () => {
       console.log('[RecordingsList] Cleaning up recording completed listener...');
-      unsubscribe();
+      unsubscribeRecording();
+      console.log('[RecordingsList] Cleaning up real-time transcription finalized listener...');
+      unsubscribeTranscription();
     };
   }, []);
 

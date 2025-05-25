@@ -14,8 +14,9 @@ interface AppContainerProps {
 }
 
 export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
-  const [recordingsListKey, setRecordingsListKey] = React.useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [realtimeTranscript, setRealtimeTranscript] = useState<string>('');
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
     // Subscribe to window state changes
@@ -29,9 +30,19 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
   }, [events]);
 
   const handleRecordingComplete = () => {
-    console.log('[AppContainer] Recording complete, refreshing recordings list');
-    // Force RecordingsList to remount and reload
-    setRecordingsListKey(prev => prev + 1);
+    console.log('[AppContainer] Recording complete');
+    setIsRecording(false);
+    setRealtimeTranscript('');
+    // RecordingsList will handle its own refresh via event listeners
+  };
+
+  const handleRealtimeTranscriptUpdate = (text: string) => {
+    setRealtimeTranscript(text);
+  };
+
+  const handleRecordingStart = () => {
+    setIsRecording(true);
+    setRealtimeTranscript('');
   };
 
   const handleMinimize = () => {
@@ -67,7 +78,7 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
       </header>
       <div className={styles.layout}>
         <Sidebar>
-          <RecordingsList key={recordingsListKey} />
+          <RecordingsList />
         </Sidebar>
         <main className={styles.appMain}>
           <RecordingControls 
@@ -76,7 +87,19 @@ export const AppContainer: React.FC<AppContainerProps> = ({ events }) => {
               // TODO: Show error notification
             }}
             onRecordingComplete={handleRecordingComplete}
+            onRealtimeTranscriptUpdate={handleRealtimeTranscriptUpdate}
+            onRecordingStart={handleRecordingStart}
           />
+          
+          {/* Real-time Transcript Display */}
+          {isRecording && realtimeTranscript && (
+            <div className={styles.realtimeTranscript}>
+              <h3>Live Transcription</h3>
+              <div className={styles.transcriptContent}>
+                {realtimeTranscript}
+              </div>
+            </div>
+          )}
         </main>
       </div>
       <footer className={styles.appFooter}>

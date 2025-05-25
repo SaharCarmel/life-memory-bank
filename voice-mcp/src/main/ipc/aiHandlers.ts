@@ -12,9 +12,22 @@ export function setupAIHandlers(storageService?: StorageService): void {
   }
 
   // Process transcript with AI
-  ipcMain.handle('ai:processTranscript', async (_, recordingId: string, transcriptPath: string) => {
+  ipcMain.handle('ai:processTranscript', async (_, recordingId: string, transcriptPath?: string) => {
     try {
-      const jobId = await aiService.processTranscript(recordingId, transcriptPath);
+      let finalTranscriptPath = transcriptPath;
+      
+      // If no transcript path provided, try to generate one from database segments
+      if (!finalTranscriptPath && storageServiceInstance) {
+        console.log(`No transcript path provided for ${recordingId}, checking for database segments...`);
+        const generatedPath = await storageServiceInstance.generateTranscriptFileFromSegments(recordingId);
+        finalTranscriptPath = generatedPath || undefined;
+      }
+      
+      if (!finalTranscriptPath) {
+        throw new Error('No transcript available. Please transcribe the recording first.');
+      }
+      
+      const jobId = await aiService.processTranscript(recordingId, finalTranscriptPath);
       return { success: true, jobId };
     } catch (error) {
       console.error('Failed to start AI processing:', error);
@@ -72,7 +85,7 @@ function setupAIEventForwarding(): void {
     // Update storage with AI progress
     const job = await aiService.getJobStatus(jobId);
     if (job && storageServiceInstance) {
-      await storageServiceInstance.updateAIStatus(job.recordingId, 'processing', progress, message);
+      await storageServiceInstance.updateAIStatus(job.recordingId, 'processing', message, progress);
     }
     
     // Forward to renderer
@@ -91,11 +104,11 @@ function setupAIEventForwarding(): void {
     if (job && result && storageServiceInstance) {
       try {
         await storageServiceInstance.saveAIContent(job.recordingId, result.title, result.summary);
-        await storageServiceInstance.updateAIStatus(job.recordingId, 'completed', 100);
+        await storageServiceInstance.updateAIStatus(job.recordingId, 'completed', undefined, 100);
         console.log(`AI content saved for recording ${job.recordingId}: "${result.title}"`);
       } catch (error) {
         console.error(`Failed to save AI content for recording ${job.recordingId}:`, error);
-        await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', 100, 'Failed to save AI content');
+        await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', 'Failed to save AI content', 100);
       }
     }
     
@@ -113,7 +126,7 @@ function setupAIEventForwarding(): void {
     // Update storage with AI failure
     const job = await aiService.getJobStatus(jobId);
     if (job && storageServiceInstance) {
-      await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', 0, error);
+      await storageServiceInstance.updateAIStatus(job.recordingId, 'failed', error, 0);
     }
     
     // Forward to renderer

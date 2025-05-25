@@ -66,7 +66,7 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
         window.webContents.send(IpcChannels.RECORDING_STATUS, 'Recording in progress...');
       });
       
-      return { success: true };
+      return { success: true, recordingId: currentRecordingId };
     } catch (error) {
       throw createError(
         ErrorCode.RECORDING_FAILED,

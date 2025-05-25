@@ -27,7 +27,7 @@ export function setupAudioHandlers(): void {
       recordingSessions.set(sessionId, session);
       
       console.log(`Recording session started: ${sessionId}, recording ID: ${recordingId}`);
-      return { success: true, sessionId };
+      return { success: true, sessionId, recordingId };
     } catch (error) {
       console.error('Failed to start recording:', error);
       return { success: false, error: error instanceof Error ? error.message : String(error) };

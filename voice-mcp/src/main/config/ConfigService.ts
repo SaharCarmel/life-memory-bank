@@ -14,12 +14,25 @@ interface StoredOpenAIConfig {
   temperature: number;
 }
 
+export interface RealTimeTranscriptionConfig {
+  enabled: boolean;
+  whisperModel: 'tiny' | 'base' | 'small';
+  chunkDuration: number; // in seconds
+  chunkOverlap: number; // in seconds
+  maxConcurrentJobs: number;
+  enableSegmentMerging: boolean;
+  autoStartForRecordings: boolean;
+  language?: string; // optional language hint for Whisper
+}
+
 export interface ConfigData {
   openai?: OpenAIConfig;
+  realTimeTranscription?: RealTimeTranscriptionConfig;
 }
 
 interface StoredConfigData {
   openai?: StoredOpenAIConfig;
+  realTimeTranscription?: RealTimeTranscriptionConfig;
 }
 
 export class ConfigService {
@@ -108,6 +121,50 @@ export class ConfigService {
   async validateOpenAIKey(apiKey: string): Promise<boolean> {
     // Basic validation - check if it looks like an OpenAI key
     return apiKey.startsWith('sk-') && apiKey.length > 20;
+  }
+
+  getDefaultRealTimeTranscriptionConfig(): RealTimeTranscriptionConfig {
+    return {
+      enabled: false,
+      whisperModel: 'tiny',
+      chunkDuration: 5, // 5 seconds
+      chunkOverlap: 1, // 1 second overlap
+      maxConcurrentJobs: 2,
+      enableSegmentMerging: true,
+      autoStartForRecordings: false,
+      language: undefined // auto-detect
+    };
+  }
+
+  async getRealTimeTranscriptionConfig(): Promise<RealTimeTranscriptionConfig> {
+    const defaults = this.getDefaultRealTimeTranscriptionConfig();
+    const saved = this.config.realTimeTranscription;
+    
+    if (!saved) {
+      return defaults;
+    }
+    
+    // Merge saved config with defaults to ensure all fields are present
+    return {
+      ...defaults,
+      ...saved
+    };
+  }
+
+  async setRealTimeTranscriptionConfig(config: RealTimeTranscriptionConfig): Promise<void> {
+    this.config.realTimeTranscription = config;
+    await this.saveConfig();
+  }
+
+  async updateRealTimeTranscriptionConfig(updates: Partial<RealTimeTranscriptionConfig>): Promise<void> {
+    const current = await this.getRealTimeTranscriptionConfig();
+    const updated = { ...current, ...updates };
+    await this.setRealTimeTranscriptionConfig(updated);
+  }
+
+  async isRealTimeTranscriptionEnabled(): Promise<boolean> {
+    const config = await this.getRealTimeTranscriptionConfig();
+    return config.enabled;
   }
 
   async clearConfig(): Promise<void> {

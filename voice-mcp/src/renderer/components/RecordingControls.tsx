@@ -5,23 +5,58 @@ import { RecorderService, AudioLevelMonitor } from '../services';
 interface RecordingControlsProps {
   onError?: (error: Error) => void;
   onRecordingComplete?: () => void;
+  onRealtimeTranscriptUpdate?: (text: string) => void;
+  onRecordingStart?: () => void;
 }
 
 type RecordingState = 'idle' | 'recording' | 'paused' | 'stopping';
 
-export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, onRecordingComplete }) => {
+export const RecordingControls: React.FC<RecordingControlsProps> = ({ 
+  onError, 
+  onRecordingComplete,
+  onRealtimeTranscriptUpdate,
+  onRecordingStart
+}) => {
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [realTimeEnabled, setRealTimeEnabled] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   
   // Service instances
   const recorderRef = useRef<RecorderService | null>(null);
   const audioMonitorRef = useRef<AudioLevelMonitor | null>(null);
+  const transcriptListenerRef = useRef<(() => void) | null>(null);
+
+  // Check real-time transcription config on mount
+  useEffect(() => {
+    const checkRealtimeConfig = async () => {
+      try {
+        const config = await window.electron.config.getRealTimeTranscriptionConfig();
+        setRealTimeEnabled(config.enabled && config.autoStartForRecordings);
+      } catch (error) {
+        console.error('Failed to get real-time transcription config:', error);
+      }
+    };
+    checkRealtimeConfig();
+  }, []);
 
   // Handle recording button click
   const handleRecordClick = useCallback(async () => {
     try {
       if (recordingState === 'idle') {
+        // Check real-time config right before starting
+        let rtEnabled = false;
+        try {
+          const config = await window.electron.config.getRealTimeTranscriptionConfig();
+          rtEnabled = config.enabled && config.autoStartForRecordings;
+          console.log('Real-time transcription config:', config);
+          console.log('Real-time enabled:', rtEnabled);
+        } catch (error) {
+          console.error('Failed to get real-time transcription config:', error);
+        }
+        
         // Create new recorder instance
         recorderRef.current = new RecorderService();
         audioMonitorRef.current = new AudioLevelMonitor();
@@ -48,8 +83,63 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, o
           // Call the main process to start recording
           const result = await window.electron.recording.start();
           console.log('Main process recording start result:', result);
+          console.log('Result type:', typeof result);
+          console.log('Result keys:', result ? Object.keys(result) : 'null');
+          console.log('Result JSON:', JSON.stringify(result, null, 2));
           
-          await recorderRef.current.start();
+          // Extract recording ID from result
+          const recordingId = (result as any)?.recordingId || (result as any)?.id;
+          console.log('Extracted recording ID:', recordingId);
+          console.log('rtEnabled value:', rtEnabled);
+          
+          if (recordingId) {
+            setCurrentRecordingId(recordingId);
+            
+            // Start real-time transcription if enabled
+            if (rtEnabled) {
+              console.log('Real-time transcription is enabled, starting for recording:', recordingId);
+              try {
+                await window.electron.realtimeTranscription.start(recordingId);
+                setIsTranscribing(true);
+                
+                // Set up transcript update listener
+                transcriptListenerRef.current = window.electron.onRealtimeTextUpdated((data) => {
+                  console.log('Received real-time transcript update:', data);
+                  if (data.recordingId === recordingId) {
+                    onRealtimeTranscriptUpdate?.(data.text);
+                  }
+                });
+                
+                console.log('Real-time transcription started for recording:', recordingId);
+              } catch (error) {
+                console.error('Failed to start real-time transcription:', error);
+                // Continue recording even if real-time transcription fails
+              }
+            } else {
+              console.log('Real-time transcription is disabled');
+            }
+          } else {
+            console.log('No recording ID found in result, cannot start real-time transcription');
+          }
+          
+          // Set up real-time chunk processing listener
+          if (rtEnabled && recordingId) {
+            console.log('[RecordingControls] Setting up processing-chunk listener for recording:', recordingId);
+            recorderRef.current.on('processing-chunk', async (chunk) => {
+              console.log('[RecordingControls] Processing chunk for real-time transcription:', chunk.id, 'size:', chunk.data.byteLength);
+              try {
+                const result = await window.electron.realtimeTranscription.processChunk(recordingId, chunk);
+                console.log('[RecordingControls] Chunk processing result:', result);
+              } catch (error) {
+                console.error('[RecordingControls] Failed to process chunk:', error);
+              }
+            });
+          }
+          
+          await recorderRef.current.start({ enableRealTimeTranscription: rtEnabled });
+          
+          // Notify parent that recording has started
+          onRecordingStart?.();
           
           // Start audio level monitoring
           const devices = await recorderRef.current.getDevices();
@@ -105,6 +195,22 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, o
         const audioBlob = await recorderRef.current.stop();
         console.log('Recording stopped, blob size:', audioBlob.size);
         
+        // Stop real-time transcription if it was running
+        if (isTranscribing && currentRecordingId) {
+          try {
+            await window.electron.realtimeTranscription.stop(currentRecordingId);
+            console.log('Real-time transcription stopped');
+          } catch (error) {
+            console.error('Failed to stop real-time transcription:', error);
+          }
+        }
+        
+        // Clean up transcript listener
+        if (transcriptListenerRef.current) {
+          transcriptListenerRef.current();
+          transcriptListenerRef.current = null;
+        }
+        
         // Call the main process to stop recording
         const result = await window.electron.recording.stop();
         console.log('Main process recording stop result:', result);
@@ -130,12 +236,14 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({ onError, o
       setRecordingState('idle');
       setDuration(0);
       setAudioLevel(0);
+      setIsTranscribing(false);
+      setCurrentRecordingId(null);
     } catch (error) {
       console.error('Stop recording error:', error);
       setRecordingState('idle');
       onError?.(error as Error);
     }
-  }, [onError, onRecordingComplete]);
+  }, [onError, onRecordingComplete, isTranscribing, currentRecordingId]);
 
   // Update duration timer
   useEffect(() => {

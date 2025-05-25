@@ -1,562 +1,361 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as os from 'os';
-import { v4 as uuidv4 } from 'uuid';
-
-export interface StorageOptions {
-  basePath?: string;
-  maxFileSize?: number;
-}
-
-export interface RecordingMetadata {
-  id: string;
-  filename: string;
-  filepath: string;
-  startTime: Date;
-  endTime?: Date;
-  duration?: number;
-  size?: number;
-  format: string;
-  transcriptStatus?: 'none' | 'processing' | 'completed' | 'failed';
-  transcriptPath?: string;
-  transcriptError?: string;
-  transcriptProgress?: number; // 0-100 for progress tracking
-  // AI-generated content
-  aiTitle?: string;
-  aiSummary?: string;
-  aiStatus?: 'none' | 'processing' | 'completed' | 'failed';
-  aiError?: string;
-  aiProgress?: number; // 0-100 for AI processing progress
-  aiGeneratedAt?: Date;
-}
-
-export interface ActiveRecording {
-  id: string;
-  metadata: RecordingMetadata;
-  writeStream: fs.WriteStream;
-  chunks: Buffer[];
-  isFinalized: boolean;
-}
-
-// Import TranscriptionResult from whisper types
-export interface TranscriptStorage {
-  recordingId: string;
-  transcribedAt: Date;
-  result: {
-    text: string;
-    language: string;
-    segments: Array<{
-      start: number;
-      end: number;
-      text: string;
-    }>;
-  };
-  version: string;
-}
-
-// AI Content Storage interface
-export interface AIContentStorage {
-  recordingId: string;
-  generatedAt: Date;
-  title: string;
-  summary: string;
-  version: string;
-}
+import * as path from 'path';
+import { 
+  StorageOptions, 
+  RecordingMetadata, 
+  TranscriptStorage, 
+  AIContentStorage,
+  TranscriptSegment 
+} from './types';
+import { DatabaseService } from './DatabaseService';
+import { RecordingStorageService } from './RecordingStorageService';
+import { TranscriptStorageService } from './TranscriptStorageService';
+import { AIContentStorageService } from './AIContentStorageService';
 
 export class StorageService {
+  private databaseService: DatabaseService;
+  private recordingStorageService: RecordingStorageService;
+  private transcriptStorageService: TranscriptStorageService;
+  private aiContentStorageService: AIContentStorageService;
   private basePath: string;
-  private activeRecordings: Map<string, ActiveRecording> = new Map();
 
   constructor(options: StorageOptions = {}) {
     this.basePath = options.basePath || path.join(os.homedir(), 'Documents', 'VoiceMCP');
-    this.ensureBaseDirectory();
+    
+    // Initialize all services
+    this.databaseService = new DatabaseService(this.basePath);
+    this.recordingStorageService = new RecordingStorageService(options);
+    this.transcriptStorageService = new TranscriptStorageService(this.basePath);
+    this.aiContentStorageService = new AIContentStorageService(this.basePath);
+    
+    // Initialize database
+    this.initializeDatabase();
   }
 
-  private ensureBaseDirectory(): void {
+  private async initializeDatabase(): Promise<void> {
     try {
-      fs.mkdirSync(this.basePath, { recursive: true });
-      fs.mkdirSync(path.join(this.basePath, 'recordings'), { recursive: true });
+      await this.databaseService.initialize();
     } catch (error) {
-      console.error('Failed to create base directory:', error);
-      throw new Error(`Failed to create storage directory: ${error}`);
+      console.error('Failed to initialize database:', error);
     }
   }
 
-  private getRecordingPath(date: Date = new Date()): string {
-    const year = date.getFullYear().toString();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const monthName = date.toLocaleString('en-US', { month: 'long' });
-    const monthFolder = `${month}-${monthName}`;
-    
-    const recordingPath = path.join(this.basePath, 'recordings', year, monthFolder);
-    
-    // Ensure directory exists
-    fs.mkdirSync(recordingPath, { recursive: true });
-    
-    return recordingPath;
+  // Database methods - delegate to DatabaseService
+  public async saveTranscriptSegment(segment: TranscriptSegment): Promise<void> {
+    return this.databaseService.saveTranscriptSegment(segment);
   }
 
-  private generateFilename(date: Date = new Date()): string {
-    // Format date in local timezone: YYYY-MM-DD_HH-MM-SS
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    
-    const dateStr = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
-    const uuid = uuidv4().substring(0, 8);
-    return `${dateStr}_${uuid}.webm`;
+  public async saveTranscriptSegments(segments: TranscriptSegment[]): Promise<void> {
+    return this.databaseService.saveTranscriptSegments(segments);
   }
 
+  public async getTranscriptSegments(recordingId: string): Promise<TranscriptSegment[]> {
+    return this.databaseService.getTranscriptSegments(recordingId);
+  }
+
+  public async getMergedTranscriptText(recordingId: string): Promise<string> {
+    return this.databaseService.getMergedTranscriptText(recordingId);
+  }
+
+  public async finalizeTranscriptSegments(recordingId: string): Promise<void> {
+    return this.databaseService.finalizeTranscriptSegments(recordingId);
+  }
+
+  public async updateTranscriptSegmentsRecordingId(oldRecordingId: string, newRecordingId: string): Promise<void> {
+    return this.databaseService.updateTranscriptSegmentsRecordingId(oldRecordingId, newRecordingId);
+  }
+
+  public async deleteTranscriptSegments(recordingId: string): Promise<void> {
+    return this.databaseService.deleteTranscriptSegments(recordingId);
+  }
+
+  public async getTranscriptSegmentsStats(): Promise<{
+    totalSegments: number;
+    totalRecordings: number;
+    avgSegmentsPerRecording: number;
+  }> {
+    return this.databaseService.getTranscriptSegmentsStats();
+  }
+
+  public async closeDatabase(): Promise<void> {
+    return this.databaseService.close();
+  }
+
+  // Recording methods - delegate to RecordingStorageService
   public startRecording(recordingId?: string): string {
-    const id = recordingId || uuidv4();
-    const startTime = new Date();
-    const recordingPath = this.getRecordingPath(startTime);
-    const filename = this.generateFilename(startTime);
-    const filepath = path.join(recordingPath, filename);
-
-    const metadata: RecordingMetadata = {
-      id,
-      filename,
-      filepath,
-      startTime,
-      format: 'webm'
-    };
-
-    try {
-      const writeStream = fs.createWriteStream(filepath);
-      
-      const activeRecording: ActiveRecording = {
-        id,
-        metadata,
-        writeStream,
-        chunks: [],
-        isFinalized: false
-      };
-
-      this.activeRecordings.set(id, activeRecording);
-
-      writeStream.on('error', (error) => {
-        console.error(`Write stream error for recording ${id}:`, error);
-      });
-
-      writeStream.on('finish', () => {
-        console.log(`Recording ${id} write stream finished`);
-        console.log(`Recording saved to: ${metadata.filepath}`);
-      });
-
-      console.log(`Recording started: ${id}`);
-      console.log(`Recording path: ${metadata.filepath}`);
-      
-      return id;
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      throw new Error(`Failed to start recording: ${error}`);
-    }
+    return this.recordingStorageService.startRecording(recordingId);
   }
 
   public writeChunk(recordingId: string, chunk: ArrayBuffer | Buffer): void {
-    const recording = this.activeRecordings.get(recordingId);
-    if (!recording) {
-      console.error(`No active recording found for ID: ${recordingId}`);
-      return;
-    }
-
-    if (recording.isFinalized) {
-      console.warn(`Attempted to write to finalized recording: ${recordingId}`);
-      return;
-    }
-
-    try {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      recording.writeStream.write(buffer);
-      
-      // Update metadata
-      recording.metadata.size = (recording.metadata.size || 0) + buffer.length;
-      
-      // Log chunk write for debugging
-      if (recording.metadata.size && recording.metadata.size % 100000 < buffer.length) {
-        // Log every ~100KB
-        console.log(`Recording ${recordingId}: ${Math.round(recording.metadata.size / 1024)}KB written`);
-      }
-    } catch (error) {
-      console.error(`Failed to write chunk for recording ${recordingId}:`, error);
-    }
+    return this.recordingStorageService.writeChunk(recordingId, chunk);
   }
 
   public async finalizeRecording(recordingId: string): Promise<RecordingMetadata> {
-    const recording = this.activeRecordings.get(recordingId);
-    if (!recording) {
-      throw new Error(`No active recording found for ID: ${recordingId}`);
+    const metadata = await this.recordingStorageService.finalizeRecording(recordingId);
+    
+    // Extract the filename-based ID from the metadata
+    const filename = path.basename(metadata.filepath);
+    const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_([a-f0-9-]+)\.webm$/);
+    
+    if (match) {
+      const [, dateStr, timeStr, uuid] = match;
+      const filenameBasedId = `${dateStr}_${timeStr}_${uuid}`;
+      
+      // Update transcript segments to use the filename-based ID
+      console.log(`[StorageService] Updating transcript segments from ${recordingId} to ${filenameBasedId}`);
+      await this.updateTranscriptSegmentsRecordingId(recordingId, filenameBasedId);
+      
+      // Finalize transcript segments using the new ID
+      await this.finalizeTranscriptSegments(filenameBasedId);
+    } else {
+      // Fallback: finalize with original ID
+      await this.finalizeTranscriptSegments(recordingId);
     }
-
-    if (recording.isFinalized) {
-      return recording.metadata;
-    }
-
-    return new Promise((resolve, reject) => {
-      recording.isFinalized = true;
-      recording.metadata.endTime = new Date();
-      recording.metadata.duration = 
-        (recording.metadata.endTime.getTime() - recording.metadata.startTime.getTime()) / 1000;
-
-      recording.writeStream.end(() => {
-        try {
-          // Verify file exists and get final size
-          const stats = fs.statSync(recording.metadata.filepath);
-          recording.metadata.size = stats.size;
-
-          this.activeRecordings.delete(recordingId);
-          
-          console.log(`Recording finalized: ${recordingId}`);
-          console.log(`Duration: ${recording.metadata.duration}s`);
-          console.log(`Size: ${Math.round(recording.metadata.size! / 1024)}KB`);
-          console.log(`Saved to: ${recording.metadata.filepath}`);
-
-          resolve(recording.metadata);
-        } catch (error) {
-          reject(new Error(`Failed to finalize recording: ${error}`));
-        }
-      });
-    });
+    
+    return metadata;
   }
 
-  public cancelRecording(recordingId: string): void {
-    const recording = this.activeRecordings.get(recordingId);
-    if (!recording) {
-      console.warn(`No active recording found to cancel: ${recordingId}`);
-      return;
-    }
-
-    recording.isFinalized = true;
-    recording.writeStream.destroy();
+  public async cancelRecording(recordingId: string): Promise<void> {
+    await this.recordingStorageService.cancelRecording(recordingId);
     
-    // Delete the incomplete file
-    try {
-      fs.unlinkSync(recording.metadata.filepath);
-      console.log(`Deleted incomplete recording file: ${recording.metadata.filepath}`);
-    } catch (error) {
-      console.error(`Failed to delete incomplete file: ${error}`);
-    }
-
-    this.activeRecordings.delete(recordingId);
-    
-    console.log(`Recording cancelled: ${recordingId}`);
+    // Delete any transcript segments for this recording
+    await this.deleteTranscriptSegments(recordingId);
   }
 
   public getActiveRecordings(): string[] {
-    return Array.from(this.activeRecordings.keys());
+    return this.recordingStorageService.getActiveRecordings();
   }
 
   public getRecordingMetadata(recordingId: string): RecordingMetadata | undefined {
-    const recording = this.activeRecordings.get(recordingId);
-    return recording?.metadata;
+    return this.recordingStorageService.getRecordingMetadata(recordingId);
   }
 
   public async listRecordings(): Promise<RecordingMetadata[]> {
-    const recordings: RecordingMetadata[] = [];
-    const recordingsPath = path.join(this.basePath, 'recordings');
+    const recordings = await this.recordingStorageService.listRecordings();
+    
+    // Enhance recordings with transcript and AI status
+    const enhancedRecordings = await Promise.all(
+      recordings.map(async (recording) => {
+        // Check for transcript file or database segments
+        const hasTranscriptFile = await this.transcriptStorageService.hasTranscript(recording.filepath);
+        const dbSegments = await this.getTranscriptSegments(recording.id);
+        const hasDbSegments = dbSegments.length > 0;
+        const hasTranscript = hasTranscriptFile || hasDbSegments;
+        
+        // Debug logging
+        console.log(`[StorageService] Recording ${recording.id}: hasTranscriptFile=${hasTranscriptFile}, dbSegments=${dbSegments.length}, hasTranscript=${hasTranscript}`);
 
-    try {
-      // Check if recordings directory exists
-      if (!fs.existsSync(recordingsPath)) {
-        return recordings;
-      }
-
-      // Recursively scan the recordings directory
-      const scanDirectory = async (dirPath: string): Promise<void> => {
-        const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-
-        for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry.name);
-
-          if (entry.isDirectory()) {
-            // Recursively scan subdirectories
-            await scanDirectory(fullPath);
-          } else if (entry.isFile() && entry.name.endsWith('.webm')) {
-            try {
-              // Extract metadata from filename
-              const metadata = await this.extractMetadataFromFile(fullPath);
-              if (metadata) {
-                recordings.push(metadata);
-              }
-            } catch (error) {
-              console.error(`Failed to extract metadata from ${fullPath}:`, error);
-            }
-          }
+        // Check for AI content
+        const hasAI = await this.aiContentStorageService.hasAIContent(recording.filepath);
+        let aiContent: { title?: string; summary?: string } | null = null;
+        
+        if (hasAI) {
+          aiContent = await this.aiContentStorageService.getAIContent(recording.filepath);
         }
-      };
 
-      await scanDirectory(recordingsPath);
+        return {
+          ...recording,
+          transcriptStatus: hasTranscript ? 'completed' as const : 'none' as const,
+          transcriptPath: hasTranscriptFile ? this.transcriptStorageService.getTranscriptPath(recording.filepath) : undefined,
+          aiStatus: hasAI ? 'completed' as const : 'none' as const,
+          aiTitle: aiContent?.title,
+          aiSummary: aiContent?.summary,
+          aiGeneratedAt: hasAI ? new Date() : undefined
+        };
+      })
+    );
 
-      // Sort recordings by date (newest first)
-      recordings.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
-
-      return recordings;
-    } catch (error) {
-      console.error('Failed to list recordings:', error);
-      return recordings;
-    }
-  }
-
-  private async extractMetadataFromFile(filepath: string): Promise<RecordingMetadata | null> {
-    try {
-      const stats = await fs.promises.stat(filepath);
-      const filename = path.basename(filepath);
-      
-      // Parse datetime from filename (format: YYYY-MM-DD_HH-MM-SS_uuid.webm)
-      const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_([a-f0-9-]+)\.webm$/);
-      if (!match) {
-        console.warn(`Filename doesn't match expected pattern: ${filename}`);
-        return null;
-      }
-
-      const [, dateStr, timeStr, uuid] = match;
-      const startTime = new Date(`${dateStr}T${timeStr.replace(/-/g, ':')}`);
-      
-      // Generate a unique ID based on the filename
-      const id = `${dateStr}_${timeStr}_${uuid}`;
-
-      // Check for transcript file
-      const transcriptPath = this.getTranscriptPath(filepath);
-      const hasTranscript = await this.hasTranscript(filepath);
-
-      // Check for AI content directly from file path (avoid circular dependency)
-      const aiPath = this.getAIContentPath(filepath);
-      const hasAI = await this.hasAIContent(filepath);
-      let aiContent: { title?: string; summary?: string } | null = null;
-      
-      if (hasAI) {
-        try {
-          const aiData = await fs.promises.readFile(aiPath, 'utf8');
-          const parsed: AIContentStorage = JSON.parse(aiData);
-          aiContent = {
-            title: parsed.title,
-            summary: parsed.summary
-          };
-        } catch (error) {
-          console.error(`Failed to load AI content from ${aiPath}:`, error);
-        }
-      }
-
-      return {
-        id,
-        filename,
-        filepath,
-        startTime,
-        endTime: new Date(stats.mtime), // Use file modification time as end time
-        duration: (stats.mtime.getTime() - startTime.getTime()) / 1000,
-        size: stats.size,
-        format: 'webm',
-        transcriptStatus: hasTranscript ? 'completed' : 'none',
-        transcriptPath: hasTranscript ? transcriptPath : undefined,
-        aiStatus: hasAI ? 'completed' : 'none',
-        aiTitle: aiContent?.title,
-        aiSummary: aiContent?.summary,
-        aiGeneratedAt: hasAI ? new Date() : undefined
-      };
-    } catch (error) {
-      console.error(`Failed to extract metadata from ${filepath}:`, error);
-      return null;
-    }
+    return enhancedRecordings;
   }
 
   public async getRecordingInfo(recordingId: string): Promise<RecordingMetadata | null> {
-    try {
-      const recordings = await this.listRecordings();
-      return recordings.find(r => r.id === recordingId) || null;
-    } catch (error) {
-      console.error(`Failed to get recording info for ${recordingId}:`, error);
-      return null;
-    }
+    return this.recordingStorageService.getRecordingInfo(recordingId);
   }
 
   public async deleteRecording(filepath: string): Promise<void> {
-    try {
-      await fs.promises.unlink(filepath);
+    // Extract recording ID from filepath for database cleanup
+    const filename = path.basename(filepath);
+    const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})_([a-f0-9-]+)\.webm$/);
+    
+    if (match) {
+      const [, dateStr, timeStr, uuid] = match;
+      const recordingId = `${dateStr}_${timeStr}_${uuid}`;
       
-      // Also delete transcript if it exists
-      const transcriptPath = this.getTranscriptPath(filepath);
-      if (await this.hasTranscript(filepath)) {
-        await fs.promises.unlink(transcriptPath);
-        console.log(`Transcript deleted: ${transcriptPath}`);
-      }
-
-      // Also delete AI content if it exists
-      const aiPath = this.getAIContentPath(filepath);
-      if (await this.hasAIContent(filepath)) {
-        await fs.promises.unlink(aiPath);
-        console.log(`AI content deleted: ${aiPath}`);
-      }
-      
-      console.log(`Recording deleted: ${filepath}`);
-    } catch (error) {
-      throw new Error(`Failed to delete recording: ${error}`);
+      // Delete transcript segments from database
+      await this.deleteTranscriptSegments(recordingId);
     }
+
+    // Delete the recording file
+    await this.recordingStorageService.deleteRecording(filepath);
+    
+    // Delete transcript file if it exists
+    await this.transcriptStorageService.deleteTranscript(filepath);
+    
+    // Delete AI content if it exists
+    await this.aiContentStorageService.deleteAIContent(filepath);
   }
 
-  // Transcript-related methods
+  // Transcript methods - delegate to TranscriptStorageService
   public getTranscriptPath(recordingFilepath: string): string {
-    const dir = path.dirname(recordingFilepath);
-    const basename = path.basename(recordingFilepath, '.webm');
-    return path.join(dir, `${basename}.transcript.json`);
+    return this.transcriptStorageService.getTranscriptPath(recordingFilepath);
   }
 
   public async hasTranscript(recordingFilepath: string): Promise<boolean> {
-    const transcriptPath = this.getTranscriptPath(recordingFilepath);
-    try {
-      await fs.promises.access(transcriptPath, fs.constants.F_OK);
-      return true;
-    } catch {
-      return false;
-    }
+    return this.transcriptStorageService.hasTranscript(recordingFilepath);
   }
 
   public async saveTranscript(recordingId: string, transcript: TranscriptStorage['result']): Promise<string> {
-    try {
-      // Find the recording metadata to get the filepath
-      const recordings = await this.listRecordings();
-      const recording = recordings.find(r => r.id === recordingId);
-      
-      if (!recording) {
-        throw new Error(`Recording not found: ${recordingId}`);
-      }
-
-      const transcriptPath = this.getTranscriptPath(recording.filepath);
-      
-      const transcriptData: TranscriptStorage = {
-        recordingId,
-        transcribedAt: new Date(),
-        result: transcript,
-        version: '1.0'
-      };
-
-      await fs.promises.writeFile(transcriptPath, JSON.stringify(transcriptData, null, 2), 'utf8');
-      
-      console.log(`Transcript saved: ${transcriptPath}`);
-      return transcriptPath;
-    } catch (error) {
-      console.error(`Failed to save transcript for recording ${recordingId}:`, error);
-      throw new Error(`Failed to save transcript: ${error}`);
+    // Find the recording metadata to get the filepath
+    const recordings = await this.listRecordings();
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+      throw new Error(`Recording not found: ${recordingId}`);
     }
+
+    return this.transcriptStorageService.saveTranscript(recordingId, recording.filepath, transcript);
   }
 
   public async loadTranscript(recordingId: string): Promise<TranscriptStorage['result'] | null> {
-    try {
-      // Find the recording metadata to get the filepath
-      const recordings = await this.listRecordings();
-      const recording = recordings.find(r => r.id === recordingId);
+    // First try to load from database segments
+    const segments = await this.getTranscriptSegments(recordingId);
+    if (segments.length > 0) {
+      // Convert segments to transcript format
+      const text = segments
+        .filter(s => !s.isOverlap)
+        .sort((a, b) => a.startTime - b.startTime)
+        .map(s => s.text)
+        .join(' ')
+        .trim();
       
-      if (!recording) {
-        throw new Error(`Recording not found: ${recordingId}`);
-      }
+      const transcriptSegments = segments
+        .filter(s => !s.isOverlap)
+        .sort((a, b) => a.startTime - b.startTime)
+        .map(s => ({
+          start: s.startTime,
+          end: s.endTime,
+          text: s.text
+        }));
 
-      const transcriptPath = this.getTranscriptPath(recording.filepath);
-      
-      if (!(await this.hasTranscript(recording.filepath))) {
-        return null;
-      }
-
-      const transcriptData = await fs.promises.readFile(transcriptPath, 'utf8');
-      const parsed: TranscriptStorage = JSON.parse(transcriptData);
-      
-      return parsed.result;
-    } catch (error) {
-      console.error(`Failed to load transcript for recording ${recordingId}:`, error);
-      return null;
+      return {
+        text,
+        language: segments[0]?.language || 'en',
+        segments: transcriptSegments
+      };
     }
+
+    // Fallback to file-based transcript
+    const recordings = await this.listRecordings();
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+      throw new Error(`Recording not found: ${recordingId}`);
+    }
+
+    return this.transcriptStorageService.loadTranscript(recording.filepath);
   }
 
-  public async updateTranscriptStatus(recordingId: string, status: RecordingMetadata['transcriptStatus'], progress?: number, error?: string): Promise<void> {
-    // This method would typically update a database record
-    // For now, we'll just log the status change
-    // In a full implementation, you might want to store metadata in SQLite
-    console.log(`Transcript status updated for ${recordingId}: ${status}${progress !== undefined ? ` (${progress}%)` : ''}${error ? ` - ${error}` : ''}`);
+  public async updateTranscriptStatus(recordingId: string, status: 'none' | 'processing' | 'completed' | 'failed', error?: string, progress?: number): Promise<void> {
+    return this.transcriptStorageService.updateTranscriptStatus(recordingId, status, error, progress);
   }
 
-  // AI-related methods
+  // AI Content methods - delegate to AIContentStorageService
   public getAIContentPath(recordingFilepath: string): string {
-    const dir = path.dirname(recordingFilepath);
-    const basename = path.basename(recordingFilepath, '.webm');
-    return path.join(dir, `${basename}.ai.json`);
+    return this.aiContentStorageService.getAIContentPath(recordingFilepath);
   }
 
   public async hasAIContent(recordingFilepath: string): Promise<boolean> {
-    const aiPath = this.getAIContentPath(recordingFilepath);
-    try {
-      await fs.promises.access(aiPath, fs.constants.F_OK);
-      return true;
-    } catch {
-      return false;
+    return this.aiContentStorageService.hasAIContent(recordingFilepath);
+  }
+
+  public async saveAIContent(recordingId: string, title: string, summary: string): Promise<string> {
+    // Find the recording metadata to get the filepath
+    const recordings = await this.listRecordings();
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+      throw new Error(`Recording not found: ${recordingId}`);
     }
+
+    return this.aiContentStorageService.saveAIContent(recordingId, recording.filepath, title, summary);
   }
 
-  public async updateAIStatus(recordingId: string, status: RecordingMetadata['aiStatus'], progress?: number, error?: string): Promise<void> {
-    // This method would typically update a database record
-    // For now, we'll just log the status change
-    // In a full implementation, you might want to store metadata in SQLite
-    console.log(`AI status updated for ${recordingId}: ${status}${progress !== undefined ? ` (${progress}%)` : ''}${error ? ` - ${error}` : ''}`);
+  public async getAIContent(recordingId: string): Promise<{ title: string; summary: string } | null> {
+    // Find the recording metadata to get the filepath
+    const recordings = await this.listRecordings();
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+      return null;
+    }
+
+    return this.aiContentStorageService.getAIContent(recording.filepath);
   }
 
-  public async saveAIContent(recordingId: string, title: string, summary: string): Promise<void> {
+  public async updateAIStatus(recordingId: string, status: 'none' | 'processing' | 'completed' | 'failed', error?: string, progress?: number): Promise<void> {
+    return this.aiContentStorageService.updateAIStatus(recordingId, status, error, progress);
+  }
+
+  // Generate transcript file from database segments for AI processing
+  public async generateTranscriptFileFromSegments(recordingId: string): Promise<string | null> {
     try {
-      // Find the recording metadata to get the filepath
+      // Get segments from database
+      const segments = await this.getTranscriptSegments(recordingId);
+      if (segments.length === 0) {
+        return null;
+      }
+
+      // Find the recording to get filepath
       const recordings = await this.listRecordings();
       const recording = recordings.find(r => r.id === recordingId);
-      
       if (!recording) {
         throw new Error(`Recording not found: ${recordingId}`);
       }
 
-      const aiPath = this.getAIContentPath(recording.filepath);
+      // Convert segments to transcript format
+      const text = segments
+        .filter(s => !s.isOverlap)
+        .sort((a, b) => a.startTime - b.startTime)
+        .map(s => s.text)
+        .join(' ')
+        .trim();
       
-      const aiData: AIContentStorage = {
+      const transcriptSegments = segments
+        .filter(s => !s.isOverlap)
+        .sort((a, b) => a.startTime - b.startTime)
+        .map(s => ({
+          start: s.startTime,
+          end: s.endTime,
+          text: s.text
+        }));
+
+      const transcriptData: TranscriptStorage = {
         recordingId,
-        generatedAt: new Date(),
-        title,
-        summary,
+        transcribedAt: new Date(),
+        result: {
+          text,
+          language: segments[0]?.language || 'en',
+          segments: transcriptSegments
+        },
         version: '1.0'
       };
 
-      await fs.promises.writeFile(aiPath, JSON.stringify(aiData, null, 2), 'utf8');
+      // Save to temporary transcript file
+      const transcriptPath = await this.transcriptStorageService.saveTranscript(recordingId, recording.filepath, transcriptData.result);
       
-      console.log(`AI content saved: ${aiPath}`);
-      console.log(`Title: ${title}`);
-      console.log(`Summary: ${summary}`);
+      console.log(`Generated transcript file from segments for recording ${recordingId}: ${transcriptPath}`);
+      return transcriptPath;
     } catch (error) {
-      console.error(`Failed to save AI content for recording ${recordingId}:`, error);
-      throw new Error(`Failed to save AI content: ${error}`);
-    }
-  }
-
-  public async getAIContent(recordingId: string): Promise<{ title?: string; summary?: string } | null> {
-    try {
-      // Find the recording metadata to get the filepath
-      const recordings = await this.listRecordings();
-      const recording = recordings.find(r => r.id === recordingId);
-      
-      if (!recording) {
-        return null;
-      }
-
-      const aiPath = this.getAIContentPath(recording.filepath);
-      
-      if (!(await this.hasAIContent(recording.filepath))) {
-        return null;
-      }
-
-      const aiData = await fs.promises.readFile(aiPath, 'utf8');
-      const parsed: AIContentStorage = JSON.parse(aiData);
-      
-      return {
-        title: parsed.title,
-        summary: parsed.summary
-      };
-    } catch (error) {
-      console.error(`Failed to get AI content for recording ${recordingId}:`, error);
+      console.error(`Failed to generate transcript file from segments for recording ${recordingId}:`, error);
       return null;
     }
   }
+
+  // Utility methods
+  public getBasePath(): string {
+    return this.basePath;
+  }
 }
+
+// Export types for backward compatibility
+export * from './types';

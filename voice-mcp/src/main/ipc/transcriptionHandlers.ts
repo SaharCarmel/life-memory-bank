@@ -153,7 +153,7 @@ export function registerTranscriptionHandlers(
             console.log(`Starting AI processing for recording ${job.recordingId} after transcription completion`);
             
             // Update AI status to processing
-            await storageService.updateAIStatus(job.recordingId, 'processing', 0);
+            await storageService.updateAIStatus(job.recordingId, 'processing', undefined, 0);
             
             // Get recording to get transcript path for AI processing
             const recordings = await storageService.listRecordings();
@@ -179,7 +179,7 @@ export function registerTranscriptionHandlers(
           }
         } catch (aiError) {
           console.error(`Failed to start AI processing for recording ${job.recordingId}:`, aiError);
-          await storageService.updateAIStatus(job.recordingId, 'failed', 0, aiError instanceof Error ? aiError.message : 'Unknown AI error');
+          await storageService.updateAIStatus(job.recordingId, 'failed', aiError instanceof Error ? aiError.message : 'Unknown AI error', 0);
         }
       }
       
@@ -206,7 +206,7 @@ export function registerTranscriptionHandlers(
       // Update transcript status
       const job = whisperService.getJob(failedEvent.jobId);
       if (job) {
-        await storageService.updateTranscriptStatus(job.recordingId, 'failed', undefined, failedEvent.error);
+        await storageService.updateTranscriptStatus(job.recordingId, 'failed', failedEvent.error, undefined);
       }
       
       mainWindow.webContents.send('transcription:failed', {

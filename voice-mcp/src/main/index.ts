@@ -3,6 +3,7 @@ import { windowManager } from './window/index';
 import { setupWindowHandlers } from './window/handlers';
 import { setupIpcHandlers } from './ipc/handlers';
 import { registerTranscriptionHandlers } from './ipc/transcriptionHandlers';
+import { setupRealtimeTranscriptionHandlers } from './ipc/realtimeTranscriptionHandlers';
 import { ServiceContainer } from '../shared/services';
 import { EventEmitter } from '../shared/events';
 import { PythonEnvironment } from './python/PythonEnvironment';
@@ -10,6 +11,7 @@ import { WhisperService } from './whisper/WhisperService';
 import { StorageService } from './storage/StorageService';
 import { configService } from './config/ConfigService';
 import { aiService } from './ai/AIService';
+import { RealTimeTranscriptionService } from './realtime/RealTimeTranscriptionService';
 
 // Initialize service container
 const serviceContainer = new ServiceContainer();
@@ -20,6 +22,7 @@ serviceContainer.register('EventEmitter', () => eventEmitter, { singleton: true 
 const pythonEnv = new PythonEnvironment();
 const whisperService = new WhisperService(pythonEnv, eventEmitter);
 const storageService = new StorageService();
+const realTimeTranscriptionService = new RealTimeTranscriptionService(pythonEnv, eventEmitter, storageService);
 
 // Handle squirrel events for Windows
 if (process.platform === 'win32') {
@@ -69,6 +72,9 @@ app.on('ready', async () => {
 
   // Set up transcription handlers
   registerTranscriptionHandlers(whisperService, storageService, mainWindow, eventEmitter);
+  
+  // Set up real-time transcription handlers
+  setupRealtimeTranscriptionHandlers(realTimeTranscriptionService);
 
   // Set up window control handlers
   setupWindowHandlers(mainWindow);
@@ -108,6 +114,14 @@ app.on('ready', async () => {
   } catch (error) {
     console.error('Failed to initialize WhisperService:', error);
   }
+
+  // Initialize RealTimeTranscriptionService in the background
+  try {
+    await realTimeTranscriptionService.initialize();
+    console.log('RealTimeTranscriptionService initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize RealTimeTranscriptionService:', error);
+  }
 });
 
 // Quit when all windows are closed, except on macOS
@@ -137,10 +151,12 @@ app.on('activate', () => {
     
     // Re-register transcription handlers for new window
     registerTranscriptionHandlers(whisperService, storageService, mainWindow, eventEmitter);
+    setupRealtimeTranscriptionHandlers(realTimeTranscriptionService);
   }
 });
 
 // Clean up on app quit
 app.on('before-quit', () => {
   whisperService.dispose();
+  realTimeTranscriptionService.dispose();
 });

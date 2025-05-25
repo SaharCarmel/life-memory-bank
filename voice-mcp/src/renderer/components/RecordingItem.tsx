@@ -196,13 +196,14 @@ export const RecordingItem: React.FC<RecordingItemProps> = ({ recording, onDelet
         return;
       }
 
-      // Get the transcript path from the recording
-      if (!recording.transcriptPath) {
+      // Check if we have any transcript (file or database segments)
+      if (transcriptionStatus !== 'completed') {
         alert('No transcript available. Please transcribe the recording first.');
         return;
       }
 
-      const result = await window.electron.ai.processTranscript(recording.id, recording.transcriptPath);
+      // Pass the transcript path if available, otherwise let the backend handle database segments
+      const result = await window.electron.ai.processTranscript(recording.id, recording.transcriptPath || undefined);
       if (result.success) {
         setCurrentAIJobId(result.jobId);
         setAIStatus('processing');

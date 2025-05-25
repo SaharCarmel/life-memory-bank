@@ -21,7 +21,8 @@ export const mainConfig: Configuration = {
     },
   },
   externals: {
-    'electron-squirrel-startup': 'commonjs2 electron-squirrel-startup'
+    'electron-squirrel-startup': 'commonjs2 electron-squirrel-startup',
+    'sqlite3': 'commonjs2 sqlite3'
   },
   output: {
     filename: '[name].js',
