@@ -12,6 +12,8 @@
 - [TASK018] Calendar Integration & Meeting Prediction - Integrate calendars for smart meeting recording
 
 ## Completed
+- [TASK023] Fix AI Summary Modal Data Loading - Completed on 2025-05-26
+- [TASK022] Fix Transcription Timeouts and Improve Reliability - Completed on 2025-05-26
 - [TASK021] Make Real-Time Transcription Chunk Duration Configurable - Completed on 2025-05-25
 - [TASK020] Real-Time Transcription During Recording - Completed on 2025-05-25
 - [TASK012] Fix Transcription Progress - Completed on 2025-05-23
