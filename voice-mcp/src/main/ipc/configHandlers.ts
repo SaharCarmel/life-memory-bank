@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { configService, RealTimeTranscriptionConfig } from '../config/ConfigService';
+import { configService, RealTimeTranscriptionConfig, TranscriptionConfig } from '../config/ConfigService';
 
 export function setupConfigHandlers(): void {
   // Get OpenAI configuration
@@ -81,6 +81,48 @@ export function setupConfigHandlers(): void {
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
       };
+    }
+  });
+
+  // Get transcription configuration
+  ipcMain.handle('config:getTranscription', async () => {
+    try {
+      return await configService.getTranscriptionConfig();
+    } catch (error) {
+      console.error('Failed to get transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Set transcription configuration
+  ipcMain.handle('config:setTranscription', async (_, config: TranscriptionConfig) => {
+    try {
+      await configService.setTranscriptionConfig(config);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to set transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Update transcription configuration
+  ipcMain.handle('config:updateTranscription', async (_, updates: Partial<TranscriptionConfig>) => {
+    try {
+      await configService.updateTranscriptionConfig(updates);
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to update transcription config:', error);
+      throw error;
+    }
+  });
+
+  // Get transcription provider
+  ipcMain.handle('config:getTranscriptionProvider', async () => {
+    try {
+      return await configService.getTranscriptionProvider();
+    } catch (error) {
+      console.error('Failed to get transcription provider:', error);
+      throw error;
     }
   });
 

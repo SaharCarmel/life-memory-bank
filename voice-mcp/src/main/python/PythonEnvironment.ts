@@ -124,6 +124,13 @@ export class PythonEnvironment {
   }
 
   /**
+   * Get the path to the OpenAI transcription worker script
+   */
+  getOpenAIWorkerScriptPath(): string {
+    return path.join(this.basePath, 'openai_transcription_worker.py');
+  }
+
+  /**
    * Run a Python command in the virtual environment
    */
   async runPythonCommand(args: string[], options: { timeout?: number } = {}): Promise<{

@@ -3,11 +3,13 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import { EventEmitter } from '@shared/events';
 import { PythonEnvironment } from '../python/PythonEnvironment';
+import { ConfigService } from '../config/ConfigService';
 import {
   TranscriptionJob,
   TranscriptionRequest,
   WhisperServiceOptions,
-  WhisperWorkerMessage
+  WhisperWorkerMessage,
+  TranscriptionProvider
 } from './types';
 
 // Model processing speed factors (real-time multipliers)
@@ -33,6 +35,7 @@ const MODEL_FALLBACK_CHAIN = {
 export class WhisperService {
   private pythonEnv: PythonEnvironment;
   private eventEmitter: EventEmitter;
+  private configService: ConfigService;
   private jobs: Map<string, TranscriptionJob> = new Map();
   private activeProcesses: Map<string, ChildProcess> = new Map();
   private options: WhisperServiceOptions;
@@ -41,10 +44,12 @@ export class WhisperService {
   constructor(
     pythonEnv: PythonEnvironment,
     eventEmitter: EventEmitter,
+    configService: ConfigService,
     options: WhisperServiceOptions = {}
   ) {
     this.pythonEnv = pythonEnv;
     this.eventEmitter = eventEmitter;
+    this.configService = configService;
     this.options = {
       modelName: 'turbo',
       maxConcurrentJobs: 1,
@@ -96,6 +101,18 @@ export class WhisperService {
       throw new Error(`Audio file not found: ${request.filepath}`);
     }
 
+    // Get transcription configuration
+    const transcriptionConfig = await this.configService.getTranscriptionConfig();
+    const provider = transcriptionConfig.provider;
+
+    // For OpenAI provider, check if API key is available
+    if (provider === 'openai') {
+      const hasOpenAIConfig = await this.configService.hasOpenAIConfig();
+      if (!hasOpenAIConfig) {
+        throw new Error('OpenAI API key not configured. Please configure OpenAI settings first.');
+      }
+    }
+
     // Check concurrent job limit
     const activeJobs = Array.from(this.jobs.values()).filter(
       job => job.status === 'processing' || job.status === 'queued'
@@ -103,6 +120,20 @@ export class WhisperService {
 
     if (activeJobs.length >= this.options.maxConcurrentJobs!) {
       throw new Error('Maximum concurrent transcription jobs reached');
+    }
+
+    // Calculate estimated cost for OpenAI
+    let estimatedCost: number | undefined;
+    if (provider === 'openai') {
+      try {
+        // Rough cost estimation: $0.006 per minute
+        const stats = fs.statSync(request.filepath);
+        const fileSizeBytes = stats.size;
+        const estimatedDurationMinutes = (fileSizeBytes / (16 * 1024)) / 60; // Rough estimate
+        estimatedCost = estimatedDurationMinutes * 0.006;
+      } catch (error) {
+        console.warn('Could not estimate cost:', error);
+      }
     }
 
     // Create job
@@ -113,6 +144,8 @@ export class WhisperService {
       filepath: request.filepath,
       status: 'queued',
       progress: 0,
+      provider,
+      estimatedCost,
       createdAt: new Date()
     };
 
@@ -123,7 +156,9 @@ export class WhisperService {
       type: 'transcription:job-created',
       timestamp: Date.now(),
       jobId,
-      recordingId: request.recordingId
+      recordingId: request.recordingId,
+      provider,
+      estimatedCost
     });
 
     // Start processing
@@ -254,6 +289,53 @@ export class WhisperService {
   }
 
   /**
+   * Attempt fallback to local processing when OpenAI fails
+   */
+  private async attemptLocalFallback(jobId: string, originalError: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      return;
+    }
+
+    console.log(`Attempting local fallback for OpenAI job ${jobId} due to: ${originalError}`);
+    
+    // Create new job with local provider
+    const fallbackJobId = uuidv4();
+    const transcriptionConfig = await this.configService.getTranscriptionConfig();
+    
+    const fallbackJob: TranscriptionJob = {
+      id: fallbackJobId,
+      recordingId: job.recordingId,
+      filepath: job.filepath,
+      status: 'queued',
+      progress: 0,
+      provider: 'local', // Force local processing
+      createdAt: new Date()
+    };
+
+    this.jobs.set(fallbackJobId, fallbackJob);
+
+    // Emit fallback event
+    this.eventEmitter.emit({
+      type: 'transcription:fallback-started',
+      timestamp: Date.now(),
+      originalJobId: jobId,
+      fallbackJobId,
+      recordingId: job.recordingId,
+      fallbackProvider: 'local',
+      originalError
+    });
+
+    // Process with local provider
+    try {
+      await this.processJob(fallbackJobId);
+    } catch (error) {
+      console.error(`Local fallback also failed for job ${jobId}:`, error);
+      this.handleJobError(fallbackJobId, `Local fallback failed: ${error}`);
+    }
+  }
+
+  /**
    * Cancel a transcription job
    */
   async cancelJob(jobId: string): Promise<boolean> {
@@ -310,16 +392,49 @@ export class WhisperService {
         recordingId: job.recordingId
       });
 
-      // Prepare arguments for Python worker
-      const args = [
-        this.pythonEnv.getWorkerScriptPath(),
-        job.filepath,
-        '--model', this.options.modelName!
-      ];
+      // Get transcription configuration
+      const transcriptionConfig = await this.configService.getTranscriptionConfig();
+      const provider = job.provider || transcriptionConfig.provider;
+
+      let workerScript: string;
+      let args: string[];
+
+      if (provider === 'openai') {
+        // Use OpenAI transcription worker
+        workerScript = this.pythonEnv.getOpenAIWorkerScriptPath();
+        const openaiConfig = await this.configService.getOpenAIConfig();
+        const apiKey = openaiConfig?.apiKey;
+
+        if (!apiKey) {
+          throw new Error('OpenAI API key not available');
+        }
+
+        args = [
+          workerScript,
+          job.filepath,
+          '--model', transcriptionConfig.openaiModel,
+          '--api-key', apiKey
+        ];
+
+        // Add language if specified
+        if (transcriptionConfig.language) {
+          args.push('--language', transcriptionConfig.language);
+        }
+      } else {
+        // Use local Whisper worker
+        workerScript = this.pythonEnv.getWorkerScriptPath();
+        args = [
+          workerScript,
+          job.filepath,
+          '--model', transcriptionConfig.localModel
+        ];
+      }
 
       if (outputPath) {
         args.push('--output', outputPath);
       }
+
+      console.log(`Starting ${provider} transcription worker for job ${jobId}:`, { workerScript, provider });
 
       // Spawn Python process
       const pythonPath = this.pythonEnv.getPythonPath();
@@ -353,7 +468,7 @@ export class WhisperService {
 
       // Handle stderr
       childProcess.stderr?.on('data', (data: Buffer) => {
-        console.error(`Whisper worker stderr [${jobId}]:`, data.toString());
+        console.error(`${provider} worker stderr [${jobId}]:`, data.toString());
       });
 
       // Handle process completion
@@ -379,10 +494,21 @@ export class WhisperService {
         this.handleJobError(jobId, `Process error: ${error.message}`);
       });
 
-      // Calculate dynamic timeout based on file size and model
-      const dynamicTimeout = this.calculateTimeout(job.filepath, this.options.modelName!);
+      // Calculate dynamic timeout based on provider and file
+      let dynamicTimeout: number;
       
-      console.log(`Setting timeout for job ${jobId}: ${Math.round(dynamicTimeout / 1000)}s`);
+      if (provider === 'openai') {
+        // OpenAI API calls are typically faster but depend on network and file upload
+        // Use a simpler timeout calculation: 2 minutes base + 30 seconds per MB
+        const stats = fs.statSync(job.filepath);
+        const fileSizeMB = stats.size / (1024 * 1024);
+        dynamicTimeout = Math.max(120000, 120000 + (fileSizeMB * 30000)); // 2 min + 30s per MB
+      } else {
+        // Use existing local processing timeout calculation
+        dynamicTimeout = this.calculateTimeout(job.filepath, transcriptionConfig.localModel);
+      }
+      
+      console.log(`Setting ${provider} timeout for job ${jobId}: ${Math.round(dynamicTimeout / 1000)}s`);
       
       // Set dynamic timeout
       setTimeout(() => {
@@ -391,8 +517,11 @@ export class WhisperService {
           proc?.kill('SIGTERM');
           this.activeProcesses.delete(jobId);
           
-          // Try retry with fallback model if enabled
-          if (this.options.enableRetry && this.options.retryWithFasterModel) {
+          // For OpenAI, try fallback to local if auto-fallback is enabled
+          if (provider === 'openai' && transcriptionConfig.autoFallbackToLocal) {
+            console.log(`OpenAI transcription timed out for job ${jobId}, attempting local fallback`);
+            this.attemptLocalFallback(jobId, 'OpenAI transcription timed out');
+          } else if (provider === 'local' && this.options.enableRetry && this.options.retryWithFasterModel) {
             this.retryWithFallbackModel(jobId, 'Transcription timed out');
           } else {
             this.handleJobError(jobId, 'Transcription timed out');

@@ -14,6 +14,16 @@ interface StoredOpenAIConfig {
   temperature: number;
 }
 
+export interface TranscriptionConfig {
+  provider: 'local' | 'openai'; // Default transcription provider
+  localModel: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'turbo'; // For local Whisper
+  openaiModel: 'whisper-1'; // For OpenAI API
+  maxConcurrentJobs: number;
+  showCostEstimates: boolean; // Show cost estimates for OpenAI
+  autoFallbackToLocal: boolean; // Fallback to local if OpenAI fails
+  language?: string; // optional language hint
+}
+
 export interface RealTimeTranscriptionConfig {
   enabled: boolean;
   whisperModel: 'tiny' | 'base' | 'small';
@@ -27,11 +37,13 @@ export interface RealTimeTranscriptionConfig {
 
 export interface ConfigData {
   openai?: OpenAIConfig;
+  transcription?: TranscriptionConfig;
   realTimeTranscription?: RealTimeTranscriptionConfig;
 }
 
 interface StoredConfigData {
   openai?: StoredOpenAIConfig;
+  transcription?: TranscriptionConfig;
   realTimeTranscription?: RealTimeTranscriptionConfig;
 }
 
@@ -106,6 +118,13 @@ export class ConfigService {
 
   async setOpenAIConfig(config: OpenAIConfig): Promise<void> {
     this.config.openai = config;
+    
+    // Auto-enable OpenAI transcription when API key is set
+    const currentTranscriptionConfig = await this.getTranscriptionConfig();
+    if (!this.config.transcription || currentTranscriptionConfig.provider === 'local') {
+      await this.updateTranscriptionConfig({ provider: 'openai' });
+    }
+    
     await this.saveConfig();
   }
 
@@ -121,6 +140,59 @@ export class ConfigService {
   async validateOpenAIKey(apiKey: string): Promise<boolean> {
     // Basic validation - check if it looks like an OpenAI key
     return apiKey.startsWith('sk-') && apiKey.length > 20;
+  }
+
+  async getDefaultTranscriptionConfig(): Promise<TranscriptionConfig> {
+    // Auto-enable OpenAI if API key is available
+    const hasOpenAI = await this.hasOpenAIConfig();
+    
+    return {
+      provider: hasOpenAI ? 'openai' : 'local',
+      localModel: 'turbo',
+      openaiModel: 'whisper-1',
+      maxConcurrentJobs: 2,
+      showCostEstimates: true,
+      autoFallbackToLocal: true,
+      language: undefined // auto-detect
+    };
+  }
+
+  async getTranscriptionConfig(): Promise<TranscriptionConfig> {
+    const defaults = await this.getDefaultTranscriptionConfig();
+    const saved = this.config.transcription;
+    
+    if (!saved) {
+      // If no saved config and we have OpenAI, auto-enable it
+      const hasOpenAI = await this.hasOpenAIConfig();
+      if (hasOpenAI && defaults.provider === 'openai') {
+        // Save the auto-enabled config
+        await this.setTranscriptionConfig(defaults);
+        return defaults;
+      }
+      return defaults;
+    }
+    
+    // Merge saved config with defaults to ensure all fields are present
+    return {
+      ...defaults,
+      ...saved
+    };
+  }
+
+  async setTranscriptionConfig(config: TranscriptionConfig): Promise<void> {
+    this.config.transcription = config;
+    await this.saveConfig();
+  }
+
+  async updateTranscriptionConfig(updates: Partial<TranscriptionConfig>): Promise<void> {
+    const current = await this.getTranscriptionConfig();
+    const updated = { ...current, ...updates };
+    await this.setTranscriptionConfig(updated);
+  }
+
+  async getTranscriptionProvider(): Promise<'local' | 'openai'> {
+    const config = await this.getTranscriptionConfig();
+    return config.provider;
   }
 
   getDefaultRealTimeTranscriptionConfig(): RealTimeTranscriptionConfig {

@@ -20,7 +20,7 @@ serviceContainer.register('EventEmitter', () => eventEmitter, { singleton: true 
 
 // Initialize transcription services
 const pythonEnv = new PythonEnvironment();
-const whisperService = new WhisperService(pythonEnv, eventEmitter);
+const whisperService = new WhisperService(pythonEnv, eventEmitter, configService);
 const storageService = new StorageService();
 const realTimeTranscriptionService = new RealTimeTranscriptionService(pythonEnv, eventEmitter, storageService);
 

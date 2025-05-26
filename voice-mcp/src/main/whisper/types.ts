@@ -1,3 +1,5 @@
+export type TranscriptionProvider = 'local' | 'openai';
+
 export interface TranscriptionJob {
   id: string;
   recordingId: string;
@@ -6,6 +8,9 @@ export interface TranscriptionJob {
   progress: number; // 0-100
   result?: TranscriptionResult;
   error?: string;
+  provider?: TranscriptionProvider;
+  estimatedCost?: number;
+  actualCost?: number;
   createdAt: Date;
   startedAt?: Date;
   completedAt?: Date;

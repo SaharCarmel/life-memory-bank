@@ -12,6 +12,16 @@ interface OpenAIConfig {
   temperature: number;
 }
 
+interface TranscriptionConfig {
+  provider: 'local' | 'openai';
+  localModel: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'turbo';
+  openaiModel: 'whisper-1';
+  maxConcurrentJobs: number;
+  showCostEstimates: boolean;
+  autoFallbackToLocal: boolean;
+  language?: string;
+}
+
 interface RealTimeTranscriptionConfig {
   enabled: boolean;
   whisperModel: 'tiny' | 'base' | 'small';
@@ -24,13 +34,22 @@ interface RealTimeTranscriptionConfig {
 }
 
 export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'openai' | 'transcription'>('openai');
+  const [activeTab, setActiveTab] = useState<'openai' | 'transcription' | 'realtime'>('openai');
   const [openaiConfig, setOpenaiConfig] = useState<OpenAIConfig>({
     apiKey: '',
     model: 'gpt-4o',
     temperature: 0
   });
-  const [transcriptionConfig, setTranscriptionConfig] = useState<RealTimeTranscriptionConfig>({
+  const [transcriptionConfig, setTranscriptionConfig] = useState<TranscriptionConfig>({
+    provider: 'local',
+    localModel: 'turbo',
+    openaiModel: 'whisper-1',
+    maxConcurrentJobs: 2,
+    showCostEstimates: true,
+    autoFallbackToLocal: true,
+    language: undefined
+  });
+  const [realtimeConfig, setRealtimeConfig] = useState<RealTimeTranscriptionConfig>({
     enabled: false,
     whisperModel: 'tiny',
     chunkDuration: 5,
@@ -65,10 +84,16 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
         setHasExistingKey(openaiConfig.hasApiKey);
       }
 
+      // Load transcription config
+      const transcConfig = await window.electron.config.getTranscriptionConfig();
+      if (transcConfig) {
+        setTranscriptionConfig(transcConfig);
+      }
+
       // Load real-time transcription config
       const rtConfig = await window.electron.config.getRealTimeTranscriptionConfig();
       if (rtConfig) {
-        setTranscriptionConfig(rtConfig);
+        setRealtimeConfig(rtConfig);
       }
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -97,19 +122,31 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
         await window.electron.config.setOpenAIConfig(configToSave);
       } else if (activeTab === 'transcription') {
         // Validate transcription config
-        if (transcriptionConfig.chunkOverlap >= transcriptionConfig.chunkDuration) {
+        if (transcriptionConfig.maxConcurrentJobs < 1 || transcriptionConfig.maxConcurrentJobs > 8) {
+          throw new Error('Max concurrent jobs must be between 1 and 8');
+        }
+
+        // Require OpenAI API key if OpenAI provider is selected
+        if (transcriptionConfig.provider === 'openai' && !hasExistingKey) {
+          throw new Error('OpenAI API key is required when using OpenAI transcription. Please configure it in the OpenAI tab first.');
+        }
+
+        await window.electron.config.setTranscriptionConfig(transcriptionConfig);
+      } else if (activeTab === 'realtime') {
+        // Validate real-time transcription config
+        if (realtimeConfig.chunkOverlap >= realtimeConfig.chunkDuration) {
           throw new Error('Chunk overlap must be less than chunk duration');
         }
         
-        if (transcriptionConfig.chunkDuration < 2 || transcriptionConfig.chunkDuration > 30) {
+        if (realtimeConfig.chunkDuration < 2 || realtimeConfig.chunkDuration > 30) {
           throw new Error('Chunk duration must be between 2 and 30 seconds');
         }
         
-        if (transcriptionConfig.chunkOverlap < 0.5 || transcriptionConfig.chunkOverlap > 5) {
+        if (realtimeConfig.chunkOverlap < 0.5 || realtimeConfig.chunkOverlap > 5) {
           throw new Error('Chunk overlap must be between 0.5 and 5 seconds');
         }
 
-        await window.electron.config.setRealTimeTranscriptionConfig(transcriptionConfig);
+        await window.electron.config.setRealTimeTranscriptionConfig(realtimeConfig);
       }
       
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
@@ -163,7 +200,13 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
               className={`${styles.tab} ${activeTab === 'transcription' ? styles.active : ''}`}
               onClick={() => setActiveTab('transcription')}
             >
-              Real-time Transcription
+              Transcription
+            </button>
+            <button 
+              className={`${styles.tab} ${activeTab === 'realtime' ? styles.active : ''}`}
+              onClick={() => setActiveTab('realtime')}
+            >
+              Real-time
             </button>
           </div>
 
@@ -172,7 +215,7 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
               <div className={styles.section}>
                 <h3>OpenAI Configuration</h3>
                 <p className={styles.description}>
-                  Configure your OpenAI API key to enable AI-powered features like smart recording names and summaries.
+                  Configure your OpenAI API key to enable AI-powered features like smart recording names, summaries, and cloud transcription.
                 </p>
 
                 <div className={styles.field}>
@@ -226,6 +269,148 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
 
             {activeTab === 'transcription' && (
               <div className={styles.section}>
+                <h3>Transcription Settings</h3>
+                <p className={styles.description}>
+                  Configure how recordings are transcribed. Choose between local Whisper processing or OpenAI's cloud-based Speech-to-Text API.
+                </p>
+
+                <div className={styles.field}>
+                  <label htmlFor="provider">Transcription Provider</label>
+                  <select
+                    id="provider"
+                    value={transcriptionConfig.provider}
+                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, provider: e.target.value as 'local' | 'openai' }))}
+                    className={styles.select}
+                  >
+                    <option value="local">Local Whisper (Free, Private)</option>
+                    <option value="openai">OpenAI Speech-to-Text ($0.006/min)</option>
+                  </select>
+                  <small className={styles.hint}>
+                    {transcriptionConfig.provider === 'local' 
+                      ? 'Process audio locally using Whisper models. No internet required, completely private.'
+                      : 'Use OpenAI\'s cloud API for potentially faster and more accurate transcription. Requires internet and API costs apply.'
+                    }
+                  </small>
+                </div>
+
+                {transcriptionConfig.provider === 'local' && (
+                  <div className={styles.field}>
+                    <label htmlFor="localModel">Local Whisper Model</label>
+                    <select
+                      id="localModel"
+                      value={transcriptionConfig.localModel}
+                      onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, localModel: e.target.value as any }))}
+                      className={styles.select}
+                    >
+                      <option value="tiny">Tiny (~39MB) - Fastest, least accurate</option>
+                      <option value="base">Base (~74MB) - Fast, moderate accuracy</option>
+                      <option value="small">Small (~244MB) - Balanced speed/accuracy</option>
+                      <option value="medium">Medium (~769MB) - Good accuracy, slower</option>
+                      <option value="large">Large (~1550MB) - Best accuracy, slowest</option>
+                      <option value="turbo">Turbo (~809MB) - Optimized for speed (Recommended)</option>
+                    </select>
+                    <small className={styles.hint}>
+                      Larger models provide better accuracy but require more time and memory
+                    </small>
+                  </div>
+                )}
+
+                {transcriptionConfig.provider === 'openai' && (
+                  <>
+                    <div className={styles.field}>
+                      <label htmlFor="openaiModel">OpenAI Model</label>
+                      <select
+                        id="openaiModel"
+                        value={transcriptionConfig.openaiModel}
+                        onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, openaiModel: e.target.value as 'whisper-1' }))}
+                        className={styles.select}
+                      >
+                        <option value="whisper-1">Whisper-1 (Latest)</option>
+                      </select>
+                      <small className={styles.hint}>
+                        OpenAI's Whisper model via API. Cost: $0.006 per minute, 25MB file limit
+                      </small>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={transcriptionConfig.showCostEstimates}
+                          onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, showCostEstimates: e.target.checked }))}
+                          className={styles.checkbox}
+                        />
+                        Show Cost Estimates
+                      </label>
+                      <small className={styles.hint}>
+                        Display estimated API costs before processing
+                      </small>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={transcriptionConfig.autoFallbackToLocal}
+                          onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, autoFallbackToLocal: e.target.checked }))}
+                          className={styles.checkbox}
+                        />
+                        Auto-fallback to Local
+                      </label>
+                      <small className={styles.hint}>
+                        Automatically use local Whisper if OpenAI API fails or is unavailable
+                      </small>
+                    </div>
+                  </>
+                )}
+
+                <div className={styles.field}>
+                  <label htmlFor="transcriptionLanguage">Language (Optional)</label>
+                  <select
+                    id="transcriptionLanguage"
+                    value={transcriptionConfig.language || ''}
+                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, language: e.target.value || undefined }))}
+                    className={styles.select}
+                  >
+                    <option value="">Auto-detect</option>
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh">Chinese</option>
+                    <option value="he">Hebrew</option>
+                    <option value="ar">Arabic</option>
+                  </select>
+                  <small className={styles.hint}>
+                    Specify language for better accuracy, or leave as auto-detect
+                  </small>
+                </div>
+
+                <div className={styles.field}>
+                  <label htmlFor="transcriptionJobs">Max Concurrent Jobs</label>
+                  <input
+                    id="transcriptionJobs"
+                    type="number"
+                    min="1"
+                    max="8"
+                    value={transcriptionConfig.maxConcurrentJobs}
+                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, maxConcurrentJobs: parseInt(e.target.value) }))}
+                    className={styles.input}
+                  />
+                  <small className={styles.hint}>
+                    Number of recordings to transcribe simultaneously (1-8)
+                  </small>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'realtime' && (
+              <div className={styles.section}>
                 <h3>Real-time Transcription</h3>
                 <p className={styles.description}>
                   Configure real-time transcription settings for live transcript display during recording.
@@ -235,8 +420,8 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                   <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
-                      checked={transcriptionConfig.enabled}
-                      onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                      checked={realtimeConfig.enabled}
+                      onChange={(e) => setRealtimeConfig(prev => ({ ...prev, enabled: e.target.checked }))}
                       className={styles.checkbox}
                     />
                     Enable Real-time Transcription
@@ -250,28 +435,28 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                   <label htmlFor="whisperModel">Whisper Model</label>
                   <select
                     id="whisperModel"
-                    value={transcriptionConfig.whisperModel}
-                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, whisperModel: e.target.value as 'tiny' | 'base' | 'small' }))}
+                    value={realtimeConfig.whisperModel}
+                    onChange={(e) => setRealtimeConfig(prev => ({ ...prev, whisperModel: e.target.value as 'tiny' | 'base' | 'small' }))}
                     className={styles.select}
-                    disabled={!transcriptionConfig.enabled}
+                    disabled={!realtimeConfig.enabled}
                   >
                     <option value="tiny">Tiny (Fastest, less accurate)</option>
                     <option value="base">Base (Balanced)</option>
                     <option value="small">Small (Slower, more accurate)</option>
                   </select>
                   <small className={styles.hint}>
-                    Larger models are more accurate but slower
+                    Larger models are more accurate but slower. For real-time use, Tiny is recommended.
                   </small>
                 </div>
 
                 <div className={styles.field}>
-                  <label htmlFor="language">Language (Optional)</label>
+                  <label htmlFor="realtimeLanguage">Language (Optional)</label>
                   <select
-                    id="language"
-                    value={transcriptionConfig.language || ''}
-                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, language: e.target.value || undefined }))}
+                    id="realtimeLanguage"
+                    value={realtimeConfig.language || ''}
+                    onChange={(e) => setRealtimeConfig(prev => ({ ...prev, language: e.target.value || undefined }))}
                     className={styles.select}
-                    disabled={!transcriptionConfig.enabled}
+                    disabled={!realtimeConfig.enabled}
                   >
                     <option value="">Auto-detect</option>
                     <option value="en">English</option>
@@ -284,6 +469,8 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                     <option value="ja">Japanese</option>
                     <option value="ko">Korean</option>
                     <option value="zh">Chinese</option>
+                    <option value="he">Hebrew</option>
+                    <option value="ar">Arabic</option>
                   </select>
                   <small className={styles.hint}>
                     Specify language for better accuracy, or leave as auto-detect
@@ -294,10 +481,10 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                   <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
-                      checked={transcriptionConfig.autoStartForRecordings}
-                      onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, autoStartForRecordings: e.target.checked }))}
+                      checked={realtimeConfig.autoStartForRecordings}
+                      onChange={(e) => setRealtimeConfig(prev => ({ ...prev, autoStartForRecordings: e.target.checked }))}
                       className={styles.checkbox}
-                      disabled={!transcriptionConfig.enabled}
+                      disabled={!realtimeConfig.enabled}
                     />
                     Auto-start for new recordings
                   </label>
@@ -313,10 +500,10 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                     type="number"
                     min="1"
                     max="4"
-                    value={transcriptionConfig.maxConcurrentJobs}
-                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, maxConcurrentJobs: parseInt(e.target.value) }))}
+                    value={realtimeConfig.maxConcurrentJobs}
+                    onChange={(e) => setRealtimeConfig(prev => ({ ...prev, maxConcurrentJobs: parseInt(e.target.value) }))}
                     className={styles.input}
-                    disabled={!transcriptionConfig.enabled}
+                    disabled={!realtimeConfig.enabled}
                   />
                   <small className={styles.hint}>
                     Number of audio chunks to process simultaneously (1-4)
@@ -331,10 +518,10 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                     min="2"
                     max="30"
                     step="0.5"
-                    value={transcriptionConfig.chunkDuration}
-                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, chunkDuration: parseFloat(e.target.value) }))}
+                    value={realtimeConfig.chunkDuration}
+                    onChange={(e) => setRealtimeConfig(prev => ({ ...prev, chunkDuration: parseFloat(e.target.value) }))}
                     className={styles.input}
-                    disabled={!transcriptionConfig.enabled}
+                    disabled={!realtimeConfig.enabled}
                   />
                   <small className={styles.hint}>
                     Length of audio chunks for processing (2-30 seconds). Shorter = more real-time, longer = more efficient
@@ -349,10 +536,10 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                     min="0.5"
                     max="5"
                     step="0.5"
-                    value={transcriptionConfig.chunkOverlap}
-                    onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, chunkOverlap: parseFloat(e.target.value) }))}
+                    value={realtimeConfig.chunkOverlap}
+                    onChange={(e) => setRealtimeConfig(prev => ({ ...prev, chunkOverlap: parseFloat(e.target.value) }))}
                     className={styles.input}
-                    disabled={!transcriptionConfig.enabled}
+                    disabled={!realtimeConfig.enabled}
                   />
                   <small className={styles.hint}>
                     Overlap between chunks for better continuity (0.5-5 seconds, must be less than chunk duration)
@@ -363,10 +550,10 @@ export const SettingsWindow: React.FC<SettingsWindowProps> = ({ isOpen, onClose 
                   <label className={styles.checkboxLabel}>
                     <input
                       type="checkbox"
-                      checked={transcriptionConfig.enableSegmentMerging}
-                      onChange={(e) => setTranscriptionConfig(prev => ({ ...prev, enableSegmentMerging: e.target.checked }))}
+                      checked={realtimeConfig.enableSegmentMerging}
+                      onChange={(e) => setRealtimeConfig(prev => ({ ...prev, enableSegmentMerging: e.target.checked }))}
                       className={styles.checkbox}
-                      disabled={!transcriptionConfig.enabled}
+                      disabled={!realtimeConfig.enabled}
                     />
                     Enable Smart Segment Merging
                   </label>

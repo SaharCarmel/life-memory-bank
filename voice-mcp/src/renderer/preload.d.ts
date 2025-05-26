@@ -19,6 +19,16 @@ export interface RecordingMetadata {
   aiGeneratedAt?: Date;
 }
 
+export interface TranscriptionConfig {
+  provider: 'local' | 'openai'; // Default transcription provider
+  localModel: 'tiny' | 'base' | 'small' | 'medium' | 'large' | 'turbo'; // For local Whisper
+  openaiModel: 'whisper-1'; // For OpenAI API
+  maxConcurrentJobs: number;
+  showCostEstimates: boolean; // Show cost estimates for OpenAI
+  autoFallbackToLocal: boolean; // Fallback to local if OpenAI fails
+  language?: string; // optional language hint
+}
+
 export interface RealTimeTranscriptionConfig {
   enabled: boolean;
   whisperModel: 'tiny' | 'base' | 'small';
@@ -65,6 +75,10 @@ export interface ElectronAPI {
     hasOpenAIConfig: () => Promise<boolean>;
     testOpenAIConfig: (apiKey: string) => Promise<{ success: boolean; error?: string }>;
     clearConfig: () => Promise<{ success: boolean }>;
+    getTranscriptionConfig: () => Promise<TranscriptionConfig>;
+    setTranscriptionConfig: (config: TranscriptionConfig) => Promise<{ success: boolean }>;
+    updateTranscriptionConfig: (updates: Partial<TranscriptionConfig>) => Promise<{ success: boolean }>;
+    getTranscriptionProvider: () => Promise<'local' | 'openai'>;
     getRealTimeTranscriptionConfig: () => Promise<RealTimeTranscriptionConfig>;
     setRealTimeTranscriptionConfig: (config: RealTimeTranscriptionConfig) => Promise<{ success: boolean }>;
     updateRealTimeTranscriptionConfig: (updates: Partial<RealTimeTranscriptionConfig>) => Promise<{ success: boolean }>;
