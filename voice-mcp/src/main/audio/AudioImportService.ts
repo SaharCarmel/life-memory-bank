@@ -213,7 +213,7 @@ export class AudioImportService {
   /**
    * Generate recording ID and file path for imported file
    */
-  private generateImportPaths(originalName: string): {
+  private generateImportPaths(_originalName: string): {
     recordingId: string;
     filepath: string;
     directory: string;
@@ -327,7 +327,7 @@ export class AudioImportService {
    */
   async importAudioFiles(
     validationResults: ValidationResult[],
-    options: ImportOptions = {},
+    _options: ImportOptions = {},
     onProgress?: (fileIndex: number, progress: ImportProgress) => void
   ): Promise<ImportResult[]> {
     const results: ImportResult[] = [];

@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron';
-import { AudioImportService, ValidationResult, DuplicateResult } from '../audio/AudioImportService';
+import { AudioImportService, ValidationResult } from '../audio/AudioImportService';
 import { StorageService } from '../storage/StorageService';
 
 let storageService: StorageService;
@@ -12,7 +12,7 @@ export function initializeImportHandlers(storage: StorageService) {
   console.log('[ImportHandlers] AudioImportService created with base path:', storage.getBasePath());
 
   // Show file picker dialog for selecting audio files
-  ipcMain.handle('import:select-files', async (event) => {
+  ipcMain.handle('import:select-files', async (_event) => {
     console.log('[ImportHandlers] File selection requested');
     try {
       const filters = AudioImportService.getFilePickerFilters();
@@ -209,7 +209,7 @@ export function initializeImportHandlers(storage: StorageService) {
   });
 
   // Legacy handlers for more complex workflows
-  ipcMain.handle('import:validateFiles', async (event, filePaths: string[]) => {
+  ipcMain.handle('import:validateFiles', async (_event, filePaths: string[]) => {
     console.log('[ImportHandlers] Validation requested for:', filePaths);
     try {
       const validationResults = await audioImportService.validateAudioFiles(filePaths);
@@ -228,7 +228,7 @@ export function initializeImportHandlers(storage: StorageService) {
     }
   });
 
-  ipcMain.handle('import:checkDuplicates', async (event, validationResults) => {
+  ipcMain.handle('import:checkDuplicates', async (_event, validationResults) => {
     console.log('[ImportHandlers] Duplicate check requested for:', validationResults?.length, 'files');
     try {
       const existingRecordings = await storageService.listRecordings();

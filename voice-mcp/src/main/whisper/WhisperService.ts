@@ -6,10 +6,9 @@ import { PythonEnvironment } from '../python/PythonEnvironment';
 import { ConfigService } from '../config/ConfigService';
 import {
   TranscriptionJob,
-  TranscriptionRequest,
   WhisperServiceOptions,
   WhisperWorkerMessage,
-  TranscriptionProvider
+  TranscriptionRequest
 } from './types';
 
 // Model processing speed factors (real-time multipliers)
@@ -301,7 +300,6 @@ export class WhisperService {
     
     // Create new job with local provider
     const fallbackJobId = uuidv4();
-    const transcriptionConfig = await this.configService.getTranscriptionConfig();
     
     const fallbackJob: TranscriptionJob = {
       id: fallbackJobId,
