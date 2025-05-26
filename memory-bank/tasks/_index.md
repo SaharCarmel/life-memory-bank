@@ -6,12 +6,12 @@
 ## Pending
 - [TASK011] Concurrent Transcriptions - Enable multiple simultaneous transcriptions
 - [TASK014] Import External Recordings - Add ability to load external audio files
-- [TASK015] OpenAI Speech-to-Text Integration - Add cloud-based transcription option
 - [TASK016] System Audio Capture & Meeting Detection - Implement dual audio recording with meeting detection
 - [TASK017] System Tray Integration - Add tray functionality for meeting recording controls
 - [TASK018] Calendar Integration & Meeting Prediction - Integrate calendars for smart meeting recording
 
 ## Completed
+- [TASK015] OpenAI Speech-to-Text Integration - Completed on 2025-05-26
 - [TASK023] Fix AI Summary Modal Data Loading - Completed on 2025-05-26
 - [TASK022] Fix Transcription Timeouts and Improve Reliability - Completed on 2025-05-26
 - [TASK021] Make Real-Time Transcription Chunk Duration Configurable - Completed on 2025-05-25
