@@ -19,7 +19,15 @@ Eight new tasks have been added to enhance transcription functionality, UI desig
   - ✅ Added AI progress bar for processing visualization
 
 ### Recent Changes
-1. Changelog System Implementation (2025-05-23)
+1. Build System Fix (2025-05-26)
+   - Fixed TypeScript compilation errors preventing successful builds
+   - Removed unused variable 'transcriptionConfig' in WhisperService.ts
+   - Fixed unused parameter 'options' in AudioImportService.ts
+   - Successfully generated distribution artifacts (ZIP and DMG) for macOS ARM64
+   - Build artifacts available at: voice-mcp/out/make
+   - Committed changes with hash f4f2b0b
+
+2. Changelog System Implementation (2025-05-23)
    - Created comprehensive CHANGELOG.md documenting all features from v0.1.0
    - Added detailed changelog workflow documentation in docs/CHANGELOG_WORKFLOW.md
    - Implemented automated release script (scripts/release.js) with:
