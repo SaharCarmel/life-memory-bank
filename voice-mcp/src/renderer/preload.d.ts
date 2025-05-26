@@ -62,6 +62,11 @@ export interface ElectronAPI {
     deleteRecording: (filepath: string) => Promise<void>;
     getRecordingInfo: (recordingId: string) => Promise<RecordingMetadata | undefined>;
   };
+  import: {
+    selectFiles: () => Promise<{ success: boolean; filePaths?: string[]; error?: string }>;
+    importFiles: (filePaths: string[]) => Promise<{ success: boolean; imported: number; failed: number; errors?: string[] }>;
+    getImportProgress: (jobId: string) => Promise<{ progress: number; message?: string; completed?: boolean; error?: string }>;
+  };
   transcription: {
     transcribeRecording: (recordingId: string) => Promise<string>;
     transcribeMultiple: (recordingIds: string[]) => Promise<string[]>;

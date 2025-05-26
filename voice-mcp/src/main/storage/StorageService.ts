@@ -232,6 +232,19 @@ export class StorageService {
     await this.aiContentStorageService.deleteAIContent(filepath);
   }
 
+  // Import methods
+  public async importRecording(metadata: RecordingMetadata): Promise<void> {
+    // Add imported recording to the storage system
+    // This method is called after the file has been successfully imported
+    // and converted to WebM format by the AudioImportService
+    
+    console.log(`[StorageService] Adding imported recording: ${metadata.id}`);
+    
+    // The recording file should already exist at the specified filepath
+    // We just need to register it in the recording storage service
+    await this.recordingStorageService.addImportedRecording(metadata);
+  }
+
   // Transcript methods - delegate to TranscriptStorageService
   public getTranscriptPath(recordingFilepath: string): string {
     return this.transcriptStorageService.getTranscriptPath(recordingFilepath);

@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld(
       deleteRecording: (filepath: string) => ipcRenderer.invoke('storage:delete-recording', filepath),
       getRecordingInfo: (recordingId: string) => ipcRenderer.invoke('storage:get-recording-info', recordingId),
     },
+    import: {
+      selectFiles: () => ipcRenderer.invoke('import:select-files'),
+      importFiles: (filePaths: string[]) => ipcRenderer.invoke('import:import-files', filePaths),
+      getImportProgress: (jobId: string) => ipcRenderer.invoke('import:get-progress', jobId),
+    },
     transcription: {
       transcribeRecording: (recordingId: string) => ipcRenderer.invoke('transcription:transcribe-recording', recordingId),
       transcribeMultiple: (recordingIds: string[]) => ipcRenderer.invoke('transcription:transcribe-multiple', recordingIds),

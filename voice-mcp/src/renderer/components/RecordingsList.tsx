@@ -15,6 +15,7 @@ export const RecordingsList: React.FC = () => {
   const [recordings, setRecordings] = useState<RecordingMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     console.log('[RecordingsList] Component mounted, loading recordings...');
@@ -103,6 +104,40 @@ export const RecordingsList: React.FC = () => {
     }
   };
 
+  const handleImport = async () => {
+    try {
+      setImporting(true);
+      
+      // First, select files
+      const selectResult = await window.electron.import.selectFiles();
+      if (!selectResult.success || !selectResult.filePaths || selectResult.filePaths.length === 0) {
+        console.log('File selection cancelled or failed:', selectResult.error);
+        return;
+      }
+
+      console.log('Selected files:', selectResult.filePaths);
+
+      // Then import the selected files
+      const importResult = await window.electron.import.importFiles(selectResult.filePaths);
+      if (importResult.success) {
+        console.log(`Successfully imported ${importResult.imported} files`);
+        if (importResult.failed > 0) {
+          console.warn(`Failed to import ${importResult.failed} files:`, importResult.errors);
+        }
+        // Refresh the recordings list
+        await loadRecordings();
+      } else {
+        console.error('Import failed:', importResult.errors);
+        setError(`Import failed: ${importResult.errors?.join(', ') || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Failed to import recordings:', err);
+      setError('Failed to import recordings');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className={styles.container}>
@@ -122,9 +157,19 @@ export const RecordingsList: React.FC = () => {
   if (recordings.length === 0) {
     return (
       <div className={styles.container}>
+        <div className={styles.header}>
+          <h2 className={styles.title}>Recordings</h2>
+          <button 
+            className={styles.importButton}
+            onClick={handleImport}
+            disabled={importing}
+          >
+            {importing ? 'Importing...' : '📁 Import'}
+          </button>
+        </div>
         <div className={styles.empty}>
           <p>No recordings yet</p>
-          <p className={styles.hint}>Start recording to see your audio files here</p>
+          <p className={styles.hint}>Start recording or import audio files to see them here</p>
         </div>
       </div>
     );
@@ -134,7 +179,16 @@ export const RecordingsList: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>Recordings</h2>
+      <div className={styles.header}>
+        <h2 className={styles.title}>Recordings</h2>
+        <button 
+          className={styles.importButton}
+          onClick={handleImport}
+          disabled={importing}
+        >
+          {importing ? 'Importing...' : '📁 Import'}
+        </button>
+      </div>
       
       {groupedRecordings.today.length > 0 && (
         <div className={styles.group}>

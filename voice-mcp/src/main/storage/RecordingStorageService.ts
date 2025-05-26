@@ -297,6 +297,26 @@ export class RecordingStorageService {
     }
   }
 
+  public async addImportedRecording(metadata: RecordingMetadata): Promise<void> {
+    // This method is called when an audio file has been successfully imported
+    // The file should already exist at the specified filepath
+    // We just need to verify it exists since the file scanning will pick it up automatically
+    
+    console.log(`[RecordingStorageService] Adding imported recording: ${metadata.id}`);
+    console.log(`[RecordingStorageService] File path: ${metadata.filepath}`);
+    
+    try {
+      // Verify the file exists
+      await fs.promises.access(metadata.filepath);
+      console.log(`[RecordingStorageService] Imported recording file verified: ${metadata.filepath}`);
+    } catch (error) {
+      throw new Error(`Imported recording file not found: ${metadata.filepath}`);
+    }
+    
+    // The file will be automatically picked up by listRecordings() when it scans the directory
+    // No additional storage needed since we use filesystem-based storage
+  }
+
   public getBasePath(): string {
     return this.basePath;
   }

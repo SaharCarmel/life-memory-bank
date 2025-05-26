@@ -6,6 +6,7 @@ import { ServiceContainer } from '../../shared/services';
 import { StorageService, RecordingMetadata } from '../storage/StorageService';
 import { setupConfigHandlers } from './configHandlers';
 import { setupAIHandlers } from './aiHandlers';
+import { initializeImportHandlers } from './importHandlers';
 
 let audioService: AudioService;
 let audioLevelInterval: NodeJS.Timeout | null = null;
@@ -19,9 +20,10 @@ export function setupIpcHandlers(serviceContainer: ServiceContainer): void {
   // Storage handlers
   const persistentStorageService = new StorageService();
   
-  // Set up config and AI handlers (pass storage service to AI handlers)
+  // Set up config, AI, and import handlers (pass storage service to handlers)
   setupConfigHandlers();
   setupAIHandlers(persistentStorageService);
+  initializeImportHandlers(persistentStorageService);
   
   // App handlers
   ipcMain.handle(IpcChannels.GET_APP_VERSION, () => {

@@ -23,6 +23,12 @@ export interface RecordingMetadata {
   aiError?: string;
   aiProgress?: number; // 0-100 for AI processing progress
   aiGeneratedAt?: Date;
+  // Import-specific metadata
+  isImported?: boolean;
+  originalName?: string;
+  originalFormat?: string;
+  originalSize?: number;
+  importedAt?: Date;
 }
 
 export interface ActiveRecording {
