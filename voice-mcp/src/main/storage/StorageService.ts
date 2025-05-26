@@ -168,7 +168,45 @@ export class StorageService {
   }
 
   public async getRecordingInfo(recordingId: string): Promise<RecordingMetadata | null> {
-    return this.recordingStorageService.getRecordingInfo(recordingId);
+    const recording = await this.recordingStorageService.getRecordingInfo(recordingId);
+    
+    if (!recording) {
+      return null;
+    }
+
+    // Enhance with transcript and AI status like listRecordings() does
+    try {
+      // Check for transcript file or database segments
+      const hasTranscriptFile = await this.transcriptStorageService.hasTranscript(recording.filepath);
+      const dbSegments = await this.getTranscriptSegments(recording.id);
+      const hasDbSegments = dbSegments.length > 0;
+      const hasTranscript = hasTranscriptFile || hasDbSegments;
+      
+      // Debug logging
+      console.log(`[StorageService] getRecordingInfo ${recording.id}: hasTranscriptFile=${hasTranscriptFile}, dbSegments=${dbSegments.length}, hasTranscript=${hasTranscript}`);
+
+      // Check for AI content
+      const hasAI = await this.aiContentStorageService.hasAIContent(recording.filepath);
+      let aiContent: { title?: string; summary?: string } | null = null;
+      
+      if (hasAI) {
+        aiContent = await this.aiContentStorageService.getAIContent(recording.filepath);
+      }
+
+      return {
+        ...recording,
+        transcriptStatus: hasTranscript ? 'completed' as const : 'none' as const,
+        transcriptPath: hasTranscriptFile ? this.transcriptStorageService.getTranscriptPath(recording.filepath) : undefined,
+        aiStatus: hasAI ? 'completed' as const : 'none' as const,
+        aiTitle: aiContent?.title,
+        aiSummary: aiContent?.summary,
+        aiGeneratedAt: hasAI ? new Date() : undefined
+      };
+    } catch (error) {
+      console.error(`Failed to enhance recording info for ${recordingId}:`, error);
+      // Return the basic recording info if enhancement fails
+      return recording;
+    }
   }
 
   public async deleteRecording(filepath: string): Promise<void> {
