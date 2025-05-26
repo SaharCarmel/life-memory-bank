@@ -12,6 +12,7 @@ import os
 import warnings
 import threading
 import time
+import signal
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -196,8 +197,22 @@ def transcribe_audio(model: whisper.Whisper, audio_path: str, model_name: str = 
         raise
 
 
+# Global flag for graceful shutdown
+shutdown_requested = False
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    global shutdown_requested
+    shutdown_requested = True
+    emit_error("Transcription cancelled by signal")
+    sys.exit(1)
+
 def main():
     """Main entry point for the whisper worker."""
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
     parser = argparse.ArgumentParser(description="Whisper transcription worker")
     parser.add_argument("audio_file", help="Path to audio file to transcribe")
     parser.add_argument("--model", default="turbo", help="Whisper model to use (default: turbo)")
@@ -208,11 +223,23 @@ def main():
     try:
         emit_progress(0, "Starting transcription worker")
         
+        # Check for shutdown before loading model
+        if shutdown_requested:
+            return
+            
         # Load model
         model = load_model(args.model)
         
+        # Check for shutdown before transcription
+        if shutdown_requested:
+            return
+            
         # Transcribe audio
         result = transcribe_audio(model, args.audio_file, args.model)
+        
+        # Check for shutdown before saving
+        if shutdown_requested:
+            return
         
         # Save to file if requested
         if args.output:

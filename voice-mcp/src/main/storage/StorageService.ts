@@ -4,7 +4,6 @@ import {
   StorageOptions, 
   RecordingMetadata, 
   TranscriptStorage, 
-  AIContentStorage,
   TranscriptSegment 
 } from './types';
 import { DatabaseService } from './DatabaseService';

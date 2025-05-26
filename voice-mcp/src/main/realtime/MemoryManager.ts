@@ -209,7 +209,7 @@ export class MemoryManager {
    */
   isMemoryUsageHealthy(): boolean {
     const jobStats = this.jobManager.getStats();
-    const transcriptStats = this.transcriptManager.getStats();
+    // const transcriptStats = this.transcriptManager.getStats();
 
     return jobStats.total <= this.maxJobsInMemory &&
            jobStats.deadLetter <= this.maxDeadLetterQueueSize &&

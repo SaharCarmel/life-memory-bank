@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from '@shared/events';
 import { StorageService, TranscriptSegment } from '../storage/StorageService';
 import { TranscriptBuilder } from './types';

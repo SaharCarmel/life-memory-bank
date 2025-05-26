@@ -3,10 +3,10 @@ import * as path from 'path';
 import { TranscriptStorage } from './types';
 
 export class TranscriptStorageService {
-  private basePath: string;
+  // private basePath: string;
 
-  constructor(basePath: string) {
-    this.basePath = basePath;
+  constructor(_basePath: string) {
+    // this.basePath = basePath;
   }
 
   public getTranscriptPath(recordingFilepath: string): string {

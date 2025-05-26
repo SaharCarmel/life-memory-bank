@@ -39,6 +39,12 @@ export interface WhisperServiceOptions {
   modelName?: string;
   maxConcurrentJobs?: number;
   timeout?: number;
+  timeoutMultiplier?: number;
+  minTimeout?: number;
+  maxTimeout?: number;
+  enableRetry?: boolean;
+  maxRetries?: number;
+  retryWithFasterModel?: boolean;
 }
 
 export interface TranscriptionRequest {

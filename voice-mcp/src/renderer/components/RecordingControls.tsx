@@ -20,7 +20,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   const [recordingState, setRecordingState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [realTimeEnabled, setRealTimeEnabled] = useState(false);
+  // const [realTimeEnabled, setRealTimeEnabled] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   
@@ -33,8 +33,8 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
   useEffect(() => {
     const checkRealtimeConfig = async () => {
       try {
-        const config = await window.electron.config.getRealTimeTranscriptionConfig();
-        setRealTimeEnabled(config.enabled && config.autoStartForRecordings);
+        // const config = await window.electron.config.getRealTimeTranscriptionConfig();
+        // setRealTimeEnabled(config.enabled && config.autoStartForRecordings);
       } catch (error) {
         console.error('Failed to get real-time transcription config:', error);
       }

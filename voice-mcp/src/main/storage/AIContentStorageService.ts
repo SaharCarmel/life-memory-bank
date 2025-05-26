@@ -3,10 +3,10 @@ import * as path from 'path';
 import { AIContentStorage } from './types';
 
 export class AIContentStorageService {
-  private basePath: string;
+  // private basePath: string;
 
-  constructor(basePath: string) {
-    this.basePath = basePath;
+  constructor(_basePath: string) {
+    // this.basePath = basePath;
   }
 
   public getAIContentPath(recordingFilepath: string): string {
