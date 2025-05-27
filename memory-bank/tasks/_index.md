@@ -3,9 +3,12 @@
 ## In Progress
 - None currently
 
+## Blocked
+- [TASK016] System Audio Capture & Meeting Detection - Blocked due to macOS Screen Recording permission issues (stashed)
+
 ## Pending
+- [TASK025] Fix Recording Refresh After Stop - Fix recordings not appearing after stopping recording
 - [TASK011] Concurrent Transcriptions - Enable multiple simultaneous transcriptions
-- [TASK016] System Audio Capture & Meeting Detection - Implement dual audio recording with meeting detection
 - [TASK017] System Tray Integration - Add tray functionality for meeting recording controls
 - [TASK018] Calendar Integration & Meeting Prediction - Integrate calendars for smart meeting recording
 
