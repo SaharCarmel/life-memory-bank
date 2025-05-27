@@ -2,7 +2,6 @@ import { ipcMain, IpcMainEvent, IpcMainInvokeEvent, BrowserWindow } from 'electr
 import { IpcChannels } from '@shared/types';
 import { StorageService } from '../storage/StorageService';
 import * as fs from 'fs';
-import * as path from 'path';
 
 interface RecordingSession {
   id: string;
